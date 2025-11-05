@@ -1,0 +1,1162 @@
+\documentclass[10pt, letterpaper]{article}
+
+% --- PACKAGES ---
+\usepackage[utf8]{inputenc}
+\usepackage{helvet} % Use Helvetica font, similar to Calibri
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{graphicx} % For including images
+\usepackage[left=0.5in, right=0.5in, top=0.5in, bottom=0.5in]{geometry} % Margins
+\usepackage{tabularx} % For tables with flexible column widths
+\usepackage{array}    % For advanced column specifications
+\usepackage{xcolor}   % For custom colors
+\usepackage{fancyhdr} % To remove page numbers
+\usepackage{lastpage} % For "Page X of Y" functionality
+\usepackage{microtype} % Improves text justification and spacing
+\usepackage{lipsum} % For creating placeholder images
+
+% --- COMMANDS & DEFINITIONS ---
+\pagestyle{empty} % No page numbers
+\definecolor{detectred}{HTML}{F00000} % Define the red color for "Detected"
+% F00000
+% E00000
+% D10000
+% C00000
+\usepackage[table]{xcolor}
+\usepackage{ragged2e, makecell}
+\definecolor{sectiongray}{RGB}{110,110,110}
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\renewcommand\arraystretch{1.2}
+
+\usepackage{booktabs}     % already safe in your file
+\definecolor{highlightred}{HTML}{F8CECC}  % light red background
+\definecolor{lightbar}{HTML}{B0B0B0} % thick gray divider
+\definecolor{lighterbar}{HTML}{D0D0D0} % thick gray divider
+\definecolor{tabletitlegray}{HTML}{7F7F7F}  % Gray for "TEST RESULTS" title
+
+% Slightly darker	#D0D0D0	(208, 208, 208)
+% Medium dark gray	#B0B0B0	(176, 176, 176)
+% Darker gray	#909090	(144, 144, 144)
+
+% --- extras for formatting only ---
+\usepackage{tikz}      % for the square + (rock solid inline)
+\usepackage{colortbl}  % for \cellcolor in the tag cell
+
+\usepackage{ifthen}
+
+% A tidy inline red square with a white bold "+"
+\newcommand{\PlusBox}{%
+  \tikz[baseline=-0.6ex] \node[
+    fill=detectred, text=white, inner sep=0.3pt,
+    minimum width=1.4em, minimum height=1.4em, font=\bfseries
+  ]{+};%
+}
+
+% small indent to visually offset "Not detected"
+\newcommand{\ResultIndent}{\hspace{1.5em}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% --- LOGIC HELPERS (LaTeX3) ---
+\ExplSyntaxOn
+
+% working scratch variables (declare once)
+\tl_new:N \l_xg_result_tl
+\tl_new:N \l_xg_level_tl
+\tl_new:N \l_xg_tag_tl
+\tl_new:N \l_xg_desc_tl
+
+% ---- Result: IF(H="X","Not tested", IF(OR(H=0,H="",H>35),"Not detected", IF(0<H<=35,"Detected","")))
+\cs_new_protected:Npn \xg_result_from_h:nN #1 #2
+  {
+    \tl_clear:N #2
+    \tl_if_blank:nTF {#1}
+      { \tl_set:Nn #2 {Not~detected} }
+      {
+        \str_if_eq:nnTF {#1}{X}
+          { \tl_set:Nn #2 {Not~tested} }
+          {
+            \fp_set:Nn \l_tmpa_fp {#1}
+            \fp_compare:nTF { \l_tmpa_fp = 0 }
+              { \tl_set:Nn #2 {Not~detected} }
+              {
+                \fp_compare:nTF { \l_tmpa_fp >= 35 }
+                  { \tl_set:Nn #2 {Not~detected} }
+                  {
+                    % \fp_compare:nTF { 0 < \l_tmpa_fp <= 35 }
+                    \fp_compare:nTF { 0 < \l_tmpa_fp < 35 }
+                      { \tl_set:Nn #2 {Detected} }
+                      { }
+                  }
+              }
+          }
+      }
+  }
+
+% ---- Pathogen level: IF(OR(H=0,H>=35),"",35-H)
+\cs_new_protected:Npn \xg_level_from_h:nN #1 #2
+  {
+    \tl_clear:N #2
+    \tl_if_blank:nF {#1}
+      {
+        \str_if_eq:nnF {#1}{X}
+          {
+            \fp_set:Nn \l_tmpa_fp {#1}
+            \fp_compare:nTF { \l_tmpa_fp = 0 || \l_tmpa_fp >= 35 }
+              { }
+              { \tl_set:Nx #2 { \fp_eval:n { 35 - \l_tmpa_fp } } }
+          }
+      }
+  }
+
+% \cs_new_protected:Npn \xg_level_from_h:nN #1 #2
+%   {
+%     \tl_clear:N #2
+%     \str_if_eq:nnTF {#1}{X}
+%       { }  % Return empty for X
+%       {
+%         \tl_if_blank:nTF {#1}
+%           { }
+%           {
+%             % Your existing fp_compare logic here
+%           }
+%       }
+%   }
+
+% ---- Tag (placeholder; we'll customize later)
+\cs_new_protected:Npn \xg_tag_from_hr:nnN #1 #2 #3
+  {
+    \tl_clear:N #3
+    % default mirrors your generic rule; override per row later
+    \str_if_eq:nnTF {#2}{Not~tested}
+      { }
+      {
+        \tl_if_blank:nTF {#1} { } {
+          \str_if_eq:nnTF {#1}{X} { } {
+            \fp_set:Nn \l_tmpa_fp {#1}
+            \fp_compare:nTF { \l_tmpa_fp = 0 || \l_tmpa_fp >= 35 } { } {
+              \fp_compare:nTF { 30 < \l_tmpa_fp < 35 } { \tl_set:Nn #3 {Low} } {
+                \fp_compare:nTF { 0 < \l_tmpa_fp <= 25 } { \tl_set:Nn #3 { \cellcolor{highlightred}{High} } } {
+                  \fp_compare:nTF { 25 < \l_tmpa_fp <= 30 } { \tl_set:Nn #3 {Moderate} } { }
+                }
+              }
+            }
+          }
+        }
+      }
+  }
+
+% ---- Description rule: default = only when Detected (customize per row later)
+\cs_new_protected:Npn \xg_desc_from_r:nnN #1 #2 #3
+  { \tl_clear:N #3 \tl_if_eq:nnT {#1}{Detected} { \tl_set:Nn #3 {#2} } }
+
+% value formatting helper
+\cs_new:Npn \xg_format_value:n #1 { \tl_if_blank:nTF {#1}{}{#1} }
+
+% ---- Row macro: \XGTestRow{name}{H}{desc-if-detected}
+\cs_new_protected:Npn \XGTestRow #1#2#3
+  {
+    \xg_result_from_h:nN {#2} \l_xg_result_tl
+    \xg_level_from_h:nN  {#2} \l_xg_level_tl
+    \xg_tag_from_hr:nnN  {#2} {\tl_use:N \l_xg_result_tl} \l_xg_tag_tl
+    \xg_desc_from_r:nnN  {\tl_use:N \l_xg_result_tl} {#3} \l_xg_desc_tl
+
+    \textit{#1} &
+    \textcolor{detectred}{\xg_format_value:n {#2}} &
+    \tl_use:N \l_xg_result_tl &
+    \tl_use:N \l_xg_level_tl &
+    \tl_use:N \l_xg_tag_tl &
+    \tl_use:N \l_xg_desc_tl \\
+  }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ---------- Result(value): (0,35) -> "+ Detected" ; else "Not detected"
+\NewDocumentCommand{\Result}{m}{%
+  \tl_if_blank:nTF {#1}{Not~detected}{%
+    \str_if_eq:nnTF {#1}{X}{Not~tested}{%
+      \fp_set:Nn \l_tmpa_fp {#1}%
+      \fp_compare:nTF { \l_tmpa_fp > 0 }{%
+        % \fp_compare:nTF { \l_tmpa_fp <= 35 }%
+        \fp_compare:nTF { \l_tmpa_fp < 35 }%
+          % { \textcolor{detectred}{\bfseries +}~Detected }%
+          % { Not~detected }%
+          { \textcolor{detectred}{\bfseries +}~Detected }%
+          { Not~detected }%
+      }{ Not~detected }%
+    }%
+  }%
+}
+
+% \ResultPretty{<value>} renders either "[+ box] Detected" or "  Not detected"
+\NewDocumentCommand{\ResultPretty}{m}
+ {
+   % Recompute detection *locally* (same rule: (0,35] = Detected)
+   \tl_if_blank:nTF {#1}{\ResultIndent Not~detected}{
+     \str_if_eq:nnTF {#1}{X}{\ResultIndent Not~tested}{
+       \fp_set:Nn \l_tmpa_fp {#1}
+       \fp_compare:nTF { \l_tmpa_fp > 0 }{
+         % \fp_compare:nTF { \l_tmpa_fp <= 35 }
+         \fp_compare:nTF { \l_tmpa_fp < 35 }
+           { \PlusBox~~Detected }
+           { \ResultIndent Not~detected }
+       }{ \ResultIndent Not~detected }
+     }
+   }
+ }
+
+% ---------- XA(value): (0,35] -> 35 - value ; else 0
+\NewDocumentCommand{\XA}{m}{%
+  \tl_if_blank:nTF {#1}{}{%
+    \str_if_eq:nnTF {#1}{X}{}{%
+      \fp_set:Nn \l_tmpb_fp {#1}%
+      \fp_compare:nTF { \l_tmpb_fp > 0 }{%
+        \fp_compare:nTF { \l_tmpb_fp <= 35 }{ \fp_to_decimal:n { 35 - \l_tmpb_fp } }{  }%
+      }{  }%
+    }%
+  }%
+}
+
+% ---------- XATag(value): (0,25] High ; (25,30] Moderate ; (30,35) Low ; else empty
+\NewDocumentCommand{\XATag}{m}{%
+  \tl_if_blank:nTF {#1}{}{%
+    \str_if_eq:nnTF {#1}{X}{}{%
+      \fp_set:Nn \l_tmpc_fp {#1}%
+      \fp_compare:nTF { \l_tmpc_fp > 0 }{%
+        \fp_compare:nTF { \l_tmpc_fp <= 25 }{ High }{%
+          \fp_compare:nTF { \l_tmpc_fp <= 30 }{ Moderate }{%
+            \fp_compare:nTF { \l_tmpc_fp < 35 }{ Low }{ }%
+          }%
+        }%
+      }{ }%
+    }%
+  }%
+}
+
+% \XATagPretty{<value>} prints High/Moderate/Low like before,
+% but styles High as red text on a light-red background.
+\NewDocumentCommand{\XATagPretty}{m}
+ {
+   \tl_if_blank:nTF {#1}{}{%
+     \str_if_eq:nnTF {#1}{X}{}{%
+       \fp_set:Nn \l_tmpb_fp {#1}
+       \fp_compare:nTF { \l_tmpb_fp > 0 }{%
+         \fp_compare:nTF { \l_tmpb_fp <= 25 }%
+           { \cellcolor{highlightred}\textcolor{detectred}{High} }%
+           {%
+             \fp_compare:nTF { \l_tmpb_fp <= 30 }{ Moderate }{%
+               \fp_compare:nTF { \l_tmpb_fp < 35 }{ Low }{ }%
+             }%
+           }%
+       }{ }%
+     }%
+   }%
+ }
+
+% ---------- Robust Description dictionary ----------
+% Normalize keys: trim spaces + lowercase, so matching is tolerant.
+\prop_new:N \g_xg_desc_prop_norm
+% \cs_new:Npn \xg_norm:n #1 { \tl_lower_case:n { \tl_trim_spaces:n {#1} } }
+\cs_new:Npn \xg_norm:n #1 { \str_lower_case:n { \tl_trim_spaces:n {#1} } }
+
+% Define / update a description sentence
+\NewDocumentCommand{\DescSet}{m m}
+  { \prop_put:Nnn \g_xg_desc_prop_norm { \xg_norm:n {#1} } {#2} }
+
+% Print description only when value in (0,35]; else empty
+\NewDocumentCommand{\Desc}{m m}{%
+  \tl_if_blank:nTF {#2}{}{%
+    \str_if_eq:nnTF {#2}{X}{}{%
+      \fp_set:Nn \l_tmpd_fp {#2}%
+      \fp_compare:nTF { \l_tmpd_fp > 0 }{%
+        \fp_compare:nTF { \l_tmpd_fp <= 35 }{%
+          \prop_get:NnNTF \g_xg_desc_prop_norm { \xg_norm:n {#1} } \l_tmpa_tl
+            { \tl_use:N \l_tmpa_tl }{ }%
+        }{ }%
+      }{ }%
+    }%
+  }%
+}
+
+\ExplSyntaxOff
+% ================== END LOGIC ==================
+
+% ---------- Register descriptions (edit/extend as needed) ----------
+% STIs
+% \DescSet{Neisseria gonorrhoeae}{May cause Pelvic inflammatory disease} 
+\DescSet{Neisseria gonorrhoeae}{May cause PID} 
+\DescSet{Chlamydia trachomatis}{May cause PID}
+\DescSet{Trichomonas vaginalis}{}
+\DescSet{Mycoplasma hominis}{May cause PID}
+\DescSet{Mycoplasma genitalium}{May cause PID}
+\DescSet{Haemophilus ducreyi}{}
+\DescSet{Treponema pallidum}{Causes syphilis}
+
+% Bacteria
+\DescSet{Atopobium vaginae}{May cause preterm delivery or PID}
+\DescSet{BVAB2}{May play a role in BV recurrence}
+\DescSet{Enterococcus faecalis}{Cause aerobic vaginitis}
+\DescSet{Gardnerella vaginalis}{Increase the risk of PID or UTI}
+\DescSet{Megasphaera 1}{Key indicator of BV*}
+\DescSet{Megasphaera 2}{Key indicator of BV*}
+\DescSet{Mobiluncus mulieris}{Key indicator of BV*}
+\DescSet{Prevotella bivia}{Cause recurrence of BV}
+\DescSet{Strep B/ S. agalactiae}{Cause aerobic vaginitis}
+\DescSet{Ureaplasma urealyticum}{Cause aerobic vaginitis}
+
+% --- DOCUMENT START ---
+\begin{document}
+
+% =================================
+% === PREPARE SECTION
+% =================================
+
+% ==== Named values (plain TeX, very robust) ====
+% Set:  \ValSet{Chlamydia trachomatis}{30.00}
+% Get:  \Val{Chlamydia trachomatis}  -> expands to 30.00 (or empty if unset)
+\newcommand{\ValSet}[2]{\expandafter\def\csname val@#1\endcsname{#2}}
+\newcommand{\Val}[1]{%
+  \ifcsname val@#1\endcsname
+    \csname val@#1\endcsname
+  \else
+    % empty
+  \fi
+}
+% \newcommand{\Val}[1]{%
+%   \ifcsname val@#1\endcsname
+%     \csname val@#1\endcsname
+%   \else
+%     0% Return 0 instead of empty
+%   \fi
+% }
+
+% ==== Values Definition ====
+
+% ---------- Patient Information ----------
+
+%% -- DATA_INSERT_POINT -- %%
+
+% You can also do blanks or X:
+% \ValSet{HSV-1}{}
+% \ValSet{HSV-2}{X}
+
+% ---------- Test Results ----------
+
+% --- Local fetch then call your compute macros ---
+\newcommand{\ResultOf}[1]{%
+  \begingroup
+    \def\temp{}%
+    \ifcsname val@#1\endcsname \edef\temp{\csname val@#1\endcsname}\fi
+    \ResultPretty{\temp}%
+  \endgroup
+}
+% \newcommand{\XAOf}[1]{%
+%   \begingroup
+%     \def\temp{}%
+%     \ifcsname val@#1\endcsname \edef\temp{\csname val@#1\endcsname}\fi
+%     \XA{\temp}%
+%   \endgroup
+% }
+\newcommand{\XAOf}[1]{%
+  \begingroup
+    \def\temp{}%
+    \ifcsname val@#1\endcsname \edef\temp{\csname val@#1\endcsname}\fi
+    \ifx\temp\empty\else
+      \edef\tempx{X}%
+      \ifx\temp\tempx
+        % Do nothing - leave cell empty
+      \else
+        \XA{\temp}%
+      \fi
+    \fi
+  \endgroup
+}
+\newcommand{\XATagOf}[1]{%
+  \begingroup
+    \def\temp{}%
+    \ifcsname val@#1\endcsname \edef\temp{\csname val@#1\endcsname}\fi
+    \XATagPretty{\temp}%
+  \endgroup
+}
+\newcommand{\DescOf}[1]{%
+  \begingroup
+    \def\temp{}%
+    \ifcsname val@#1\endcsname \edef\temp{\csname val@#1\endcsname}\fi
+    \Desc{#1}{\temp}%
+  \endgroup
+}
+
+% Lactobacillus status function
+% (0,25] - "Normal"; (25,30] - "Reduced"; (30,35) - "Greatly reduced"
+\newcommand{\getLactobacillusStatus}[1]{%
+    % Check if it's marked as "Not tested"
+    \ifthenelse{\equal{\Val{#1}}{X}}{%
+        % Empty result for "Not tested"
+    }{%
+        % Numeric checks
+        \ifdim\Val{#1}pt=0pt
+            % Empty result for 0
+        \else
+            \ifdim\Val{#1}pt<35pt
+                % Value is between 0 and 35
+                \ifdim\Val{#1}pt>30pt
+                    % Value is (30, 35) - Greatly reduced
+                    Greatly reduced%
+                \else
+                    \ifdim\Val{#1}pt>25pt
+                        % Value is (25, 30] - Reduced
+                        Reduced%
+                    \else
+                        % Value is (0, 25] - Normal
+                        Normal%
+                    \fi
+                \fi
+            \else
+                % Value >= 35 - Empty result
+            \fi
+        \fi
+    }%
+}
+
+% Test Control function
+% If value > 0, shows "Sample quality pass"
+
+\newcommand{\getTestControlStatus}[1]{%
+    \ifthenelse{\equal{\Val{#1}}{X}}{% If the value is "X", output nothing.
+    }{%
+        % Otherwise, run the original numerical check.
+        \ifdim\Val{#1}pt>0pt
+            Sample quality pass%
+        \else
+            % Empty or you could add "Sample quality fail" if needed
+        \fi
+    }%
+}
+
+% ---------- Test Summary ----------
+
+% Helper macro to check if a value is detected (0 < value <= 35)
+% \newcommand{\isDetected}[1]{%
+%     \ifthenelse{\lengthtest{\Val{#1} pt > 0 pt} \AND \lengthtest{\Val{#1} pt < 35.01 pt}}{1}{0}%
+% }
+
+\newcommand{\isDetected}[1]{%
+    \ifthenelse{\equal{\Val{#1}}{X}}{0}{% <-- ADD THIS: If value is 'X', return 0
+        \ifthenelse{\equal{\Val{#1}}{}}{0}{% <-- Also good to handle blanks
+            \ifthenelse{\lengthtest{\Val{#1} pt > 0 pt} \AND \lengthtest{\Val{#1} pt < 35.01 pt}}{1}{0}%
+        }%
+    }%
+}
+
+% Helper macro to get pathogen level
+% "High"-(0,25], "Moderate"-(25,30], "Low"-(30,35]
+
+\newcommand{\getPathogenLevel}[1]{%
+    \ifdim\Val{#1}pt>0pt
+        \ifdim\Val{#1}pt<25.01pt
+            High%
+        \else
+            \ifdim\Val{#1}pt<30.01pt
+                Moderate%
+            \else
+                \ifdim\Val{#1}pt<35.01pt
+                    Low%
+                \else
+                    None%
+                \fi
+            \fi
+        \fi
+    \else
+        None%
+    \fi
+}
+
+% \newcommand{\getPathogenLevel}[1]{%
+%     \ifthenelse{\equal{\Val{#1}}{X}}{None}{% <-- ADD THIS: If value is 'X', return None
+%         \ifthenelse{\equal{\Val{#1}}{}}{None}{% <-- Also good to handle blanks
+%             \ifdim\Val{#1}pt>0pt
+%                 \ifdim\Val{#1}pt<25.01pt
+%                     High%
+%                 \else
+%                     \ifdim\Val{#1}pt<30.01pt
+%                         Moderate%
+%                     \else
+%                         \ifdim\Val{#1}pt<35.01pt
+%                             Low%
+%                         \else
+%                             None%
+%                         \fi
+%                     \fi
+%                 \fi
+%             \else
+%                 None%
+%             \fi
+%         }%
+%     }%
+% }
+
+% Count BV pathogen levels
+\newcounter{bvHighCount}
+\newcounter{bvModerateCount}
+\newcounter{bvLowCount}
+\newcounter{bvTotalCount}
+
+% Macro to count BV pathogen levels
+\newcommand{\countBVLevels}{%
+    \setcounter{bvHighCount}{0}%
+    \setcounter{bvModerateCount}{0}%
+    \setcounter{bvLowCount}{0}%
+    % Count each BV pathogen
+    \ifthenelse{\equal{\getPathogenLevel{Atopobium vaginae}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Atopobium vaginae}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Atopobium vaginae}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{BVAB2}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{BVAB2}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{BVAB2}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{Enterococcus faecalis}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Enterococcus faecalis}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Enterococcus faecalis}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{Gardnerella vaginalis}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Gardnerella vaginalis}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Gardnerella vaginalis}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{Megasphaera 1}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Megasphaera 1}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Megasphaera 1}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{Megasphaera 2}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Megasphaera 2}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Megasphaera 2}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{Mobiluncus mulieris}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Mobiluncus mulieris}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Mobiluncus mulieris}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{Prevotella bivia}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Prevotella bivia}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Prevotella bivia}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{Strep B/ S. agalactiae}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Strep B/ S. agalactiae}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Strep B/ S. agalactiae}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \ifthenelse{\equal{\getPathogenLevel{Ureaplasma urealyticum}}{High}}{\stepcounter{bvHighCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Ureaplasma urealyticum}}{Moderate}}{\stepcounter{bvModerateCount}}{}%
+    \ifthenelse{\equal{\getPathogenLevel{Ureaplasma urealyticum}}{Low}}{\stepcounter{bvLowCount}}{}%
+    %
+    \setcounter{bvTotalCount}{\value{bvHighCount}}%
+    \addtocounter{bvTotalCount}{\value{bvModerateCount}}%
+    \addtocounter{bvTotalCount}{\value{bvLowCount}}%
+}
+
+% Macro to determine BV status
+\newcommand{\getBVStatus}{%
+    \countBVLevels%
+    % Check BV Positive conditions first
+    \ifthenelse{\value{bvTotalCount} > 3}{%
+        \textit{BV Positive}%
+    }{%
+        \ifthenelse{\value{bvHighCount} > 1}{%
+            \textit{BV Positive}%
+        }{%
+            % Check if total = 3 and lows != 3
+            \ifthenelse{\value{bvTotalCount} = 3}{%
+                \ifthenelse{\value{bvLowCount} = 3}{%
+                    % This is BV Suspected
+                    \textit{BV Suspected}%
+                }{%
+                    % This is BV Positive
+                    \textit{BV Positive}%
+                }%
+            }{%
+                % Check BV Suspected conditions
+                \ifthenelse{\value{bvLowCount} = 3}{%
+                    \textit{BV Suspected}%
+                }{%
+                    \ifthenelse{\value{bvHighCount} = 1}{%
+                        \ifthenelse{\value{bvModerateCount} = 0}{%
+                            \ifthenelse{\value{bvLowCount} = 0}{%
+                                \textit{BV Suspected}%
+                            }{%
+                                % Check other conditions
+                                \ifthenelse{\value{bvTotalCount} > 0}{%
+                                    % \textit{BV Indeterminate}%
+                                    \textit{BV Suspected}%
+                                }{}%
+                            }%
+                        }{%
+                            % Check other conditions
+                            \ifthenelse{\value{bvTotalCount} > 0}{%
+                                % \textit{BV Indeterminate}%
+                                \textit{BV Suspected}%
+                            }{}%
+                        }%
+                    }{%
+                        \ifthenelse{\value{bvModerateCount} = 2}{%
+                            \ifthenelse{\value{bvHighCount} = 0}{%
+                                \ifthenelse{\value{bvLowCount} = 0}{%
+                                    \textit{BV Suspected}%
+                                }{%
+                                    % Check other conditions
+                                    \ifthenelse{\value{bvTotalCount} > 0}{%
+                                        % \textit{BV Indeterminate}%
+                                        \textit{BV Suspected}%
+                                    }{}%
+                                }%
+                            }{%
+                                % Check other conditions
+                                \ifthenelse{\value{bvTotalCount} > 0}{%
+                                    % \textit{BV Indeterminate}%
+                                    \textit{BV Suspected}%
+                                }{}%
+                            }%
+                        }{%
+                            \ifthenelse{\value{bvLowCount} = 2}{%
+                                \ifthenelse{\value{bvHighCount} = 0}{%
+                                    \ifthenelse{\value{bvModerateCount} = 0}{%
+                                        \textit{BV Suspected}%
+                                    }{%
+                                        % Check other conditions
+                                        \ifthenelse{\value{bvTotalCount} > 0}{%
+                                            % \textit{BV Indeterminate}%
+                                            \textit{BV Suspected}%
+                                        }{}%
+                                    }%
+                                }{%
+                                    % Check other conditions
+                                    \ifthenelse{\value{bvTotalCount} > 0}{%
+                                        % \textit{BV Indeterminate}%
+                                        \textit{BV Suspected}%
+                                    }{}%
+                                }%
+                            }{%
+                                \ifthenelse{\value{bvModerateCount} = 1}{%
+                                    \ifthenelse{\value{bvLowCount} = 1}{%
+                                        \ifthenelse{\value{bvHighCount} = 0}{%
+                                            \textit{BV Suspected}%
+                                        }{%
+                                            % Check other conditions
+                                            \ifthenelse{\value{bvTotalCount} > 0}{%
+                                                % \textit{BV Indeterminate}%
+                                                \textit{BV Suspected}%
+                                            }{}%
+                                        }%
+                                    }{%
+                                        % Check other conditions
+                                        \ifthenelse{\value{bvTotalCount} > 0}{%
+                                            % \textit{BV Indeterminate}%
+                                            \textit{BV Suspected}%
+                                        }{}%
+                                    }%
+                                }{%
+                                    % BV Indeterminate
+                                    \ifthenelse{\value{bvTotalCount} > 0}{%
+                                        % \textit{BV Indeterminate}%
+                                        \textit{BV Suspected}%
+                                    }{}%
+                                }%
+                            }%
+                        }%
+                    }%
+                }%
+            }%
+        }%
+    }%
+}
+
+
+
+
+% Macro to create the red box with white plus sign
+\newcommand{\redPlusBox}{%
+    \tikz[baseline=-0.5ex]\node[fill=detectred,text=white,inner sep=2pt,minimum width=5.7mm,minimum height=5.7mm] {\large\textbf{+}};%
+}
+
+% Detection macros for each category - simplified approach
+
+% STIs: STIs + Virus (STI related)
+\newcommand{\checkSTIs}{%
+    \ifdim\Val{Neisseria gonorrhoeae}pt>0pt true\else%
+    \ifdim\Val{Chlamydia trachomatis}pt>0pt true\else%
+    \ifdim\Val{Trichomonas vaginalis}pt>0pt true\else%
+    \ifdim\Val{Mycoplasma hominis}pt>0pt true\else%
+    \ifdim\Val{Mycoplasma genitalium}pt>0pt true\else%
+    \ifdim\Val{Haemophilus ducreyi}pt>0pt true\else%
+    \ifdim\Val{Treponema pallidum}pt>0pt true\else%
+    \ifdim\Val{HSV1}pt>0pt true\else%
+    \ifdim\Val{HSV2}pt>0pt true\else%
+    false\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+}
+
+% BV associate pathogens: Bacteria
+\newcommand{\checkBV}{%
+    \ifdim\Val{Atopobium vaginae}pt>0pt true\else%
+    \ifdim\Val{BVAB2}pt>0pt true\else%
+    \ifdim\Val{Enterococcus faecalis}pt>0pt true\else%
+    \ifdim\Val{Gardnerella vaginalis}pt>0pt true\else%
+    \ifdim\Val{Megasphaera 1}pt>0pt true\else%
+    \ifdim\Val{Megasphaera 2}pt>0pt true\else%
+    \ifdim\Val{Mobiluncus mulieris}pt>0pt true\else%
+    \ifdim\Val{Prevotella bivia}pt>0pt true\else%
+    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else%
+    \ifdim\Val{Ureaplasma urealyticum}pt>0pt true\else%
+    false\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+}
+
+% Aerobic vaginitis associate pathogens
+\newcommand{\checkAerobicVaginitis}{%
+    \ifdim\Val{Enterococcus faecalis}pt>0pt true\else%
+    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else%
+    false\fi\fi%
+}
+
+% Group B strep
+\newcommand{\checkGroupBStrep}{%
+    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else false\fi%
+}
+
+% Candidiasis
+\newcommand{\checkCandidiasis}{%
+    \ifdim\Val{Candida albicans}pt>0pt true\else%
+    \ifdim\Val{Candida auris}pt>0pt true\else%
+    \ifdim\Val{Candida tropicalis}pt>0pt true\else%
+    \ifdim\Val{Candida krusei}pt>0pt true\else%
+    \ifdim\Val{Candida glabrata}pt>0pt true\else%
+    false\fi\fi\fi\fi\fi%
+}
+
+% Vaginal Flora
+\newcommand{\checkVaginalFlora}{%
+    \ifdim\Val{Lactobacillus}pt>0pt true\else false\fi%
+}
+
+
+% =================================
+% === Header And Footer
+% =================================
+
+% Define the main page style
+\fancypagestyle{mainpagestyle}{
+    \fancyhf{} % Clear all header and footer fields
+    
+    % Header - appears from page 2 onwards
+    \fancyhead[L]{\texttt{\small \Val{TestID} \hspace{1em} \small \Val{PatientFirstName} \Val{PatientLastName}}}
+    \fancyhead[C]{\small \texttt{DOB: \Val{PatientDOB}}}
+    \fancyhead[R]{\small \texttt{Date Reported: \Val{ReportDate}}}
+    
+    % Footer - appears on all pages
+    \fancyfoot[L]{\texttt{\small WH-RP-2508}}
+    \fancyfoot[C]{\texttt{\small X-Gene Diagnostics}}
+    \fancyfoot[R]{\texttt{\small Page \thepage\ of \pageref{LastPage}}}
+    
+    % Header and footer rules
+    \renewcommand{\headrulewidth}{0pt}
+    \renewcommand{\footrulewidth}{0pt}
+}
+
+% Define the first page style (no header, only footer)
+\fancypagestyle{firstpagestyle}{
+    \fancyhf{} % Clear all header and footer fields
+    
+    % No header on first page
+    \fancyhead{}
+    
+    % Footer - same as main style
+    \fancyfoot[L]{\texttt{\small WH-RP-2508}}
+    \fancyfoot[C]{\texttt{\small X-Gene Diagnostics}}
+    \fancyfoot[R]{\texttt{\small Page \thepage\ of \pageref{LastPage}}}
+    
+    % No header rule on first page
+    \renewcommand{\headrulewidth}{0pt}
+    \renewcommand{\footrulewidth}{0pt}
+}
+
+% Set the default page style
+\pagestyle{mainpagestyle}
+
+% Apply first page style to the first page
+\thispagestyle{firstpagestyle}
+
+
+
+% =================================
+% === HEADER SECTION
+% =================================
+\begin{tabularx}{\textwidth}{@{}%
+    m{0.2\textwidth}%
+    >{\centering\arraybackslash}m{0.48\textwidth}%
+    >{\raggedleft\arraybackslash}m{0.15\textwidth}%
+    @{\hspace{8pt}}@{}} % <-- right padding so the logo isn't flush to the edge
+    % --- Left logos ---
+    \raggedright
+    \includegraphics[height=0.4in]{../assets/CLIA_icon.png}\\[2pt]
+    \includegraphics[height=0.4in]{../assets/CAP_icon.png}
+    &
+    % --- Centered "textbox" (left-aligned inside) ---
+    \begin{minipage}{\linewidth}
+        \raggedright
+        \vspace{0pt}
+        % {\fontsize{12}{16}\selectfont \textbf{TEST REPORT}}\\[2pt]
+        {\fontsize{12}{14}\selectfont TEST REPORT}\\[6pt]
+        % {\fontsize{16}{22}\selectfont \textbf{Women's Infection Pathogen Profile}}
+        {\fontsize{16}{22}\selectfont Women's Infection Pathogen Profile}
+    \end{minipage}
+    &
+    % --- Right logo (with extra right padding from col spec) ---
+    \includegraphics[height=0.6in]{../assets/x-gene_icon.png}
+\end{tabularx}
+
+% --- Small, centered line BELOW the header table ---
+% \vspace{4pt}
+\vspace{0pt}
+\noindent\begin{center}
+{\fontsize{6}{11}\selectfont
+X-Gene Diagnostics 34 Loveton Cir, Ste 210\quad Sparks Glencoe MD 21152\quad
+Phone: 301.360.3537\quad Fax: 240.312.2097\quad
+CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
+\end{center}
+
+
+\vspace{15pt}
+
+% =================================
+% === PATIENT INFO SECTION
+% =================================
+% ---------- PATIENT / PHYSICIAN / SPECIMEN ----------
+\newcommand{\TitleFont}{{\fontsize{12}{14}\selectfont}}
+\newcommand{\BodyFont}{{\fontsize{6}{8}\selectfont}}
+% makes the header row at least 18pt tall; change 18pt to taste
+\newcommand{\HeaderStrut}{\rule{0pt}{18pt}}
+
+\setlength{\arrayrulewidth}{0.6pt}
+\arrayrulecolor{black}
+
+% slightly smaller intercolumn padding helps fit nicely
+\setlength{\tabcolsep}{5pt}
+
+\noindent
+\begin{tabularx}{\textwidth}{@{}|%
+    >{\RaggedRight\arraybackslash}m{0.40\textwidth}|%
+    >{\centering\arraybackslash}m{0.24\textwidth}|%
+    >{\RaggedRight\arraybackslash}m{0.3\textwidth}|@{}}
+\hline
+% ----- Titles -----
+\rowcolor{gray!10}
+\multicolumn{1}{|l|}{\HeaderStrut\textcolor{sectiongray}{\TitleFont\bfseries \large PATIENT/ID}} &
+\multicolumn{1}{l|}{\HeaderStrut\textcolor{sectiongray}{\TitleFont\bfseries \large PHYSICIAN}} &
+\multicolumn{1}{l|}{\HeaderStrut\textcolor{sectiongray}{\TitleFont\bfseries \large SPECIMEN}} \\
+
+% ----- Content row (with background color) -----
+% \rowcolor{gray!6}
+\begin{minipage}[t]{\linewidth}
+  \vspace{0.5pt}
+  \BodyFont
+  \begin{tabular}{@{}l l@{}}
+    \textbf{Patient:} & \Val{PatientFirstName} \Val{PatientLastName} \\[4pt]
+    \textbf{DOB:}     & \Val{PatientDOB} \\[4pt]
+    \textbf{Sex:}     & \Val{PatientSex} \\[6pt]
+    \textbf{Test ID:} & \Val{TestID} \quad \textbf{Barcode:} \Val{Barcode}
+  \end{tabular}
+  \vspace{2pt}
+\end{minipage}
+&
+% (Centered column via column spec)
+\begin{minipage}[t]{\linewidth}
+  \vspace{3pt}
+  \BodyFont
+  \centering
+  \Val{PhysicianName}\\[8pt]
+  \Val{PhysicianSpecialty}
+  \vspace{2pt}
+\end{minipage}
+&
+\begin{minipage}[t]{\linewidth}
+  \vspace{0.5pt}
+  \BodyFont
+  % regular tabular with right-aligned second column
+  % \begin{tabular}{@{}p{0.60\linewidth} >{\raggedleft\arraybackslash}p{0.40\linewidth}@{}}
+  \begin{tabular}{@{}l l@{}}
+    \textbf{Date Collected:} & \Val{DateCollected} \\[4pt]
+    \textbf{Date Received:}  & \Val{DateReceived} \\[4pt]
+    \textbf{Sample Type:}    & Vaginal Swab \\[4pt]
+    \textbf{Date Reported:}    & \Val{ReportDate}
+  \end{tabular}
+  \vspace{2pt}
+\end{minipage}
+\\ \hline
+\end{tabularx}
+
+
+\vspace{15pt}
+
+% =================================
+% === TEST SUMMARY SECTION
+% =================================
+
+\noindent % Prevents indentation
+% Section Title
+\fontsize{14}{16}\selectfont{TEST SUMMARY}
+\fontsize{10}{13}\selectfont
+\begin{table}[h]
+\centering
+\arrayrulecolor{gray}
+\renewcommand{\arraystretch}{1.7}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{6.5cm}>{\raggedright\arraybackslash}p{4.5cm}>{\raggedright\arraybackslash}p{7cm}|}
+
+% \hline
+\arrayrulecolor{lightbar}\specialrule{3pt}{1pt}{0pt}\arrayrulecolor{black}
+
+STIs & 
+\ifthenelse{\equal{\checkSTIs}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\\
+% \hline
+BV associate pathogens & 
+\ifthenelse{\equal{\checkBV}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\getBVStatus \\
+% \hline
+Aerobic vaginitis associate pathogens & 
+\ifthenelse{\equal{\checkAerobicVaginitis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\\
+% \hline
+Group B strep & 
+\ifthenelse{\equal{\checkGroupBStrep}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\\
+% \hline
+Candidiasis & 
+\ifthenelse{\equal{\checkCandidiasis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\\
+% \hline
+% Vaginal Flora & 
+% \ifthenelse{\equal{\checkVaginalFlora}{true}}{Detected}{\hspace{3.7em}Not Detected} & 
+% \\
+Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
+% \hline
+\arrayrulecolor{lightbar}\specialrule{3pt}{0pt}{2pt}\arrayrulecolor{black}
+\end{tabular}
+\end{table}
+
+% \vspace{15pt}
+
+% =================================
+% === FOOTER SECTION
+% =================================
+\noindent
+*This Comprehensive Pathogen Panel is the result of molecular assays and algorithms for the determination of Bacterial Vaginosis (BV) and Aerobic Vaginitis (AV). The BV and AV assay incorporates results from multiple pathogenic organisms.
+
+\vspace{15pt}
+
+% --- Signature Lines ---
+% \begin{tabularx}{\textwidth}{@{} p{4in} X @{}}
+%     Processed By: 
+%     & 
+%     Approved By:  \\
+% \end{tabularx} \\[25pt]
+
+\begin{center}
+  \begin{tabular}{m{0.20\textwidth} m{0.25\textwidth} m{0.20\textwidth} m{0.25\textwidth}}
+    \raggedleft \textbf{Processed By:} & 
+    \includegraphics[height=1cm]{../assets/james_sign.png} &
+    \raggedleft \textbf{Approved By:} & 
+    \includegraphics[height=1cm]{../assets/sign2.png} \\
+  \end{tabular}
+\end{center}
+
+\vspace{15pt}
+
+\noindent
+\textbf{Methods:} 
+{\small This specimen was analyzed by real-time PCR method developed by Thermo Fisher Scientific. The assay was validated by X-Gene Laboratory following the CLIA standards.} 
+
+\vspace{15pt}
+
+\noindent
+\textbf{Limitation:} 
+{\small The "Detected" result(s) will indicate the existence of target pathogen(s), the test is qualitative assay and the growth level of pathogen represents a relative amount of pathogen in a specimen. The "Not Detected" result indicate the listed pathogens are not detected by this test due to the amount of target pathogen in the specimen is below the detection limit.  The "Not Detected" results does not exclude pathogens that not listed in this test panel.}
+
+\vspace{15pt}
+
+\noindent
+\textbf{Disclaimer:} 
+{\small The FDA has neither cleared nor approved the assay, nor is FDA pre-market review required. The test is provided as LDT test by laboratory under CLIA regulation that (1) maintains its good standing as a clinical testing laboratory with all mandatory accrediting bodies, and (2) continually demonstrates that its testing protocols and procedures achieve a high degree of analytical accuracy. For further assistance with interpretation of these results, please contact X-Gene Diagnostic's Clinical Support at support@xgenediagnostics.com.}
+
+\newpage
+
+% =================================
+% === TEST RESULTS
+% =================================
+
+% ------- PANEL DESCRIPTION -------
+\noindent
+\fbox{%
+  \parbox{\dimexpr\textwidth-2\fboxsep\relax}{% keep box exactly \textwidth
+    \vspace{0.6em}
+    \noindent
+    %--- Left block ----------------------------------------------------------
+    \begin{minipage}[t]{0.63\textwidth}
+      \textbf{\textit{Pathogen Level:}} The numerical score is converted from PCR results
+      and categorized as follows:
+
+      % \vspace{0.1em}
+
+      \noindent\hspace*{10em}\begin{tabular*}{\linewidth}{ccc}
+        \textbf{Low} & \textbf{Moderate} & \textbf{High} \\
+        0.1--4.9     & 5--9.9            & 10--25        \\
+      \end{tabular*}
+    \end{minipage}%
+    \hfill
+    %--- Right block ---------------------------------------------------------
+    \begin{minipage}[t]{0.28\textwidth}
+    % \vspace{0.5em}
+      \textbf{*PID:} Pelvic inflammatory disease\\[0.6em] 
+      \hspace*{0.4em}\textbf{BV:} Bacterial vaginosis
+    \end{minipage}
+    % \vspace{0.6em}
+  }%
+}
+
+\vspace{15pt}
+
+% ------- TEST RESULTS (example skeleton) -------
+
+\noindent % Prevents indentation
+% Section Title
+% \fontsize{14}{16}\selectfont \textcolor{tabletitlegray}{\textbf{TEST RESULTS}} \\
+\fontsize{14}{16}\selectfont \textcolor{tabletitlegray}{TEST RESULTS} \\
+% NEW (same 5 columns, but italics for Name, XA tag, Description)
+% \begin{tabularx}{\textwidth}{>{\itshape}l c l c >{\itshape}X}
+\fontsize{10}{13}\selectfont
+\begin{tabularx}{\textwidth}{>{\itshape}l l c >{\itshape}c >{\itshape\small}X}
+
+% \hline
+\arrayrulecolor{lightbar}\specialrule{3pt}{2pt}{2pt}\arrayrulecolor{black}
+
+\normalfont\textbf{Pathogen} & \normalfont\textbf{~~~~~~Results} & 
+\normalfont\textbf{Pathogen level} & \footnotesize{ 0.1 (low) -25 (high)}& \normalfont\textbf{Description} \\
+
+
+\hline
+% \arrayrulecolor{lightbar}\specialrule{1.2pt}{2pt}{2pt}\arrayrulecolor{black}
+
+% Category title row (bold, full width)
+
+% --------- STIs ---------------
+\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{STIs}} \\
+% Thick gray rule (must be inside the tabular)
+\hline
+
+Neisseria gonorrhoeae  & \ResultOf{Neisseria gonorrhoeae}  & \XAOf{Neisseria gonorrhoeae}  & \XATagOf{Neisseria gonorrhoeae}  & \DescOf{Neisseria gonorrhoeae} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Chlamydia trachomatis  & \ResultOf{Chlamydia trachomatis}  & \XAOf{Chlamydia trachomatis}  & \XATagOf{Chlamydia trachomatis}  & \DescOf{Chlamydia trachomatis} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Trichomonas vaginalis  & \ResultOf{Trichomonas vaginalis}  & \XAOf{Trichomonas vaginalis}  & \XATagOf{Trichomonas vaginalis}  & \DescOf{Trichomonas vaginalis} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Mycoplasma hominis     & \ResultOf{Mycoplasma hominis}     & \XAOf{Mycoplasma hominis}     & \XATagOf{Mycoplasma hominis}     & \DescOf{Mycoplasma hominis} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Mycoplasma genitalium  & \ResultOf{Mycoplasma genitalium}  & \XAOf{Mycoplasma genitalium}  & \XATagOf{Mycoplasma genitalium}  & \DescOf{Mycoplasma genitalium} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Haemophilus ducreyi    & \ResultOf{Haemophilus ducreyi}    & \XAOf{Haemophilus ducreyi}    & \XATagOf{Haemophilus ducreyi}    & \DescOf{Haemophilus ducreyi} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Treponema pallidum     & \ResultOf{Treponema pallidum}     & \XAOf{Treponema pallidum}     & \XATagOf{Treponema pallidum}     & \DescOf{Treponema pallidum} \\
+
+\hline
+
+% --------- Candida ---------------
+% \addlinespace[8pt]
+\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{  Bacteria}} \\
+\hline
+Atopobium vaginae      & \ResultOf{Atopobium vaginae}      & \XAOf{Atopobium vaginae}      & \XATagOf{Atopobium vaginae}      & \DescOf{Atopobium vaginae} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+BVAB2                  & \ResultOf{BVAB2}                  & \XAOf{BVAB2}                  & \XATagOf{BVAB2}                  & \DescOf{BVAB2} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Enterococcus faecalis  & \ResultOf{Enterococcus faecalis}  & \XAOf{Enterococcus faecalis}  & \XATagOf{Enterococcus faecalis}  & \DescOf{Enterococcus faecalis} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Gardnerella vaginalis  & \ResultOf{Gardnerella vaginalis}  & \XAOf{Gardnerella vaginalis}  & \XATagOf{Gardnerella vaginalis}  & \DescOf{Gardnerella vaginalis} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Megasphaera 1          & \ResultOf{Megasphaera 1}          & \XAOf{Megasphaera 1}          & \XATagOf{Megasphaera 1}          & \DescOf{Megasphaera 1} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Megasphaera 2          & \ResultOf{Megasphaera 2}          & \XAOf{Megasphaera 2}          & \XATagOf{Megasphaera 2}          & \DescOf{Megasphaera 2} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Mobiluncus mulieris    & \ResultOf{Mobiluncus mulieris}    & \XAOf{Mobiluncus mulieris}    & \XATagOf{Mobiluncus mulieris}    & \DescOf{Mobiluncus mulieris} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Prevotella bivia       & \ResultOf{Prevotella bivia}       & \XAOf{Prevotella bivia}       & \XATagOf{Prevotella bivia}       & \DescOf{Prevotella bivia} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Strep B/ S. agalactiae & \ResultOf{Strep B/ S. agalactiae} & \XAOf{Strep B/ S. agalactiae} & \XATagOf{Strep B/ S. agalactiae} & \DescOf{Strep B/ S. agalactiae} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Ureaplasma urealyticum & \ResultOf{Ureaplasma urealyticum} & \XAOf{Ureaplasma urealyticum} & \XATagOf{Ureaplasma urealyticum} & \DescOf{Ureaplasma urealyticum} \\
+
+\hline
+
+% --------- Candida ---------------
+\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Candida}} \\
+\hline
+
+Candida albicans   & \ResultOf{Candida albicans}   & \XAOf{Candida albicans}   & \XATagOf{Candida albicans}   & \DescOf{Candida albicans} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Candida auris      & \ResultOf{Candida auris}      & \XAOf{Candida auris}      & \XATagOf{Candida auris}      & \DescOf{Candida auris} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Candida tropicalis & \ResultOf{Candida tropicalis} & \XAOf{Candida tropicalis} & \XATagOf{Candida tropicalis} & \DescOf{Candida tropicalis} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Candida krusei     & \ResultOf{Candida krusei}     & \XAOf{Candida krusei}     & \XATagOf{Candida krusei}     & \DescOf{Candida krusei} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+Candida glabrata   & \ResultOf{Candida glabrata}   & \XAOf{Candida glabrata}   & \XATagOf{Candida glabrata}   & \DescOf{Candida glabrata} \\
+
+\hline
+
+% ---------  Virus (STI related) -----------
+\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Virus (STI related)}} \\
+\hline
+
+HSV-1 & \ResultOf{HSV-1} & \XAOf{HSV-1} & \XATagOf{HSV-1} & \DescOf{HSV-1} \\
+\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+
+HSV-2 & \ResultOf{HSV-2} & \XAOf{HSV-2} & \XATagOf{HSV-2} & \DescOf{HSV-2} \\
+
+\hline
+
+% ---------  Vaginal flora -----------
+\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Vaginal flora}} \\
+\hline
+
+Lactobacillus crispatus \\ Lactobacillus iners \\ Lactobacillus jensenii \\ Lactobacillus gasseri & \ResultOf{Lactobacillus} & \XAOf{Lactobacillus} & \getLactobacillusStatus{Lactobacillus} & \DescOf{Lactobacillus} \\
+
+\hline
+
+% ---------  Test Control  -----------
+\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Test Control}} \\
+
+\hline
+
+Sample integrity control & \getTestControlStatus{Sample integrity control} &  &  &  \\
+
+% Blank                    & \ResultPretty{}      & \XA{}      & \XATagPretty{}      & \Desc{BVAB2}{} \\
+% % \hline
+% \arrayrulecolor{lightbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
+% X (not tested input)      & \ResultPretty{X}     & \XA{X}     & \XATagPretty{X}     & \Desc{BVAB2}{X} \\
+% \hline
+
+\arrayrulecolor{lightbar}\specialrule{3pt}{0pt}{2pt}\arrayrulecolor{black}
+
+\end{tabularx}
+
+\end{document}
