@@ -27,6 +27,11 @@ def generate_valset_string(report_data):
     """
     definitions = []
     
+    # --- NEW LOGIC: Overwrite ReportDate with today's date ---
+    # This ensures the report is always dated as "today".
+    report_data['ReportDate'] = datetime.now()
+    # --- End of new logic ---
+
     for key, value in report_data.items():
         
         # 1. Handle NaN (empty) values first
@@ -46,11 +51,23 @@ def generate_valset_string(report_data):
                 # Just convert to string as before
                 str_value = str(value)
         
-        # 3. Apply LaTeX sanitization ONLY to text fields
-        # (This now correctly skips numerical fields but includes our new date string)
+        # 3. Apply LaTeX sanitization
         if key in config.TEXT_FIELDS:
+            # This is a known text field, sanitize it.
             for char, escaped_char in LATEX_SPECIAL_CHARS:
                 str_value = str_value.replace(char, escaped_char)
+        else:
+            # --- NEW FIX: Handle non-numeric lab results ---
+            # This is a lab result. Only sanitize if it's not a pure number.
+            try:
+                # Try to convert to float. If it works, it's a number.
+                float(str_value)
+                # It's a number, do not sanitize.
+            except ValueError:
+                # It's not a number (e.g., 'Detected', '10^5', 'Pending')
+                # We MUST sanitize it.
+                for char, escaped_char in LATEX_SPECIAL_CHARS:
+                    str_value = str_value.replace(char, escaped_char)
 
         definitions.append(f"\\ValSet{{{key}}}{{{str_value}}}")
         
@@ -94,4 +111,3 @@ def compile_single_report(report_data, template_path, output_folder):
 
     print(f"  > ✅ Successfully compiled PDF!")
     return True
-

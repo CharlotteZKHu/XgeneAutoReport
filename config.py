@@ -11,9 +11,13 @@ OUTPUT_DIR = os.path.join(PROJECT_DIR, 'output')
 ASSETS_DIR = os.path.join(PROJECT_DIR, 'assets') # Path for images
 
 # --- File Names ---
-DEMOGRAPHICS_FILE = os.path.join(DATA_DIR, 'patient_demographics.xlsx')
-RESULTS_FILE = os.path.join(DATA_DIR, 'lab_results.xlsx')
-LATEX_TEMPLATE = os.path.join(TEMPLATE_DIR, 'WH_template.tex')
+# DEMOGRAPHICS_FILE = os.path.join(DATA_DIR, 'patient_demographics.xlsx')
+DEMOGRAPHICS_FILE = os.path.join(DATA_DIR, 'demographics.xlsx')
+RESULTS_FILE = os.path.join(DATA_DIR, '8 Daily Test Result Extract Template V1.1.xlsx')
+# REMOVED: LATEX_TEMPLATE, as this is now dynamic
+
+# --- NEW: Crosswalk Configuration ---
+CROSSWALK_SHEET_NAME = "Crosswalk"
 
 # --- Data Type Definitions ---
 # List of all column headers that should be treated as text.
@@ -30,10 +34,11 @@ TEXT_FIELDS = [
     'PhysicianSpecialty',
     'DateCollected',
     'DateReceived',
-    'ReportDate'
+    'ReportDate',
+    'Panel' # ADDED: Panel is a text-based key
 ]
 
-# --- NEW: Date Formatting ---
+# --- Date Formatting ---
 # List of fields that should be formatted as MM/DD/YYYY
 # This is a subset of TEXT_FIELDS.
 DATE_FIELDS = [
@@ -42,4 +47,3 @@ DATE_FIELDS = [
     'DateReceived',
     'ReportDate'
 ]
-

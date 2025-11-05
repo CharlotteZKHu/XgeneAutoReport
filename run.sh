@@ -6,7 +6,7 @@
 
 # --- Configuration ---
 # Name of the virtual environment directory
-VENV_DIR="venv"
+VENV_DIR="xgene"
 # The main Python script to execute
 MAIN_SCRIPT="main.py"
 
