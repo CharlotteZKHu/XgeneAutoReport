@@ -4,20 +4,37 @@ import report_compiler
 import os
 import sys
 import pandas as pd
+import argparse # <-- Import the argparse library
 
 def main():
     """Main function to orchestrate the report generation process."""
+    
+    # --- NEW: Set up command-line argument parsing ---
+    parser = argparse.ArgumentParser(description="Automated Patient Report Generator (Multi-Panel)")
+    parser.add_argument(
+        '-d', '--demographics', 
+        help="Path to the patient demographics Excel file.", 
+        required=True
+    )
+    parser.add_argument(
+        '-r', '--results', 
+        help="Path to the lab results Excel file (containing the Crosswalk).", 
+        required=True
+    )
+    args = parser.parse_args()
+    # --- End of new argument parsing ---
+
     print("=============================================")
     print("   Automated Patient Report Generator (Multi-Panel)")
     print("=============================================")
     
-    # Step 1: Load all necessary data
-    demographics_df = data_handler.load_demographics(config.DEMOGRAPHICS_FILE)
-    crosswalk_df = data_handler.load_crosswalk(config.RESULTS_FILE)
+    # Step 1: Load all necessary data (using paths from 'args')
+    demographics_df = data_handler.load_demographics(args.demographics)
+    crosswalk_df = data_handler.load_crosswalk(args.results)
     
     # CRITICAL CHANGE: Pass the crosswalk_df to the sheet loader.
     # This tells the loader *which* sheets to parse, avoiding junk sheets.
-    results_sheets_dict = data_handler.load_all_results_sheets(config.RESULTS_FILE, crosswalk_df)
+    results_sheets_dict = data_handler.load_all_results_sheets(args.results, crosswalk_df)
 
     if demographics_df is None or crosswalk_df is None or not results_sheets_dict:
         print("ERROR: Failed to load critical data. Exiting.", file=sys.stderr)

@@ -11,10 +11,8 @@ OUTPUT_DIR = os.path.join(PROJECT_DIR, 'output')
 ASSETS_DIR = os.path.join(PROJECT_DIR, 'assets') # Path for images
 
 # --- File Names ---
-# DEMOGRAPHICS_FILE = os.path.join(DATA_DIR, 'patient_demographics.xlsx')
-DEMOGRAPHICS_FILE = os.path.join(DATA_DIR, 'demographics.xlsx')
-RESULTS_FILE = os.path.join(DATA_DIR, '8 Daily Test Result Extract Template V1.1.xlsx')
-# REMOVED: LATEX_TEMPLATE, as this is now dynamic
+# REMOVED: DEMOGRAPHICS_FILE - This will now be a command-line argument.
+# REMOVED: RESULTS_FILE - This will also be a command-line argument.
 
 # --- NEW: Crosswalk Configuration ---
 CROSSWALK_SHEET_NAME = "Crosswalk"
