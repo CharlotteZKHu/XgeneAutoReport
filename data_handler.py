@@ -27,6 +27,26 @@ def load_demographics(demographics_path):
     print(f"--- Loading Demographics from {demographics_path} ---")
     try:
         df = pd.read_excel(demographics_path)
+
+        # --- NEW: Define the column mapping ---
+        column_rename_map = {
+            'First Name': 'PatientFirstName',
+            'Last Name': 'PatientLastName',
+            'DOB': 'PatientDOB',
+            'Gender': 'PatientSex',
+            'Physician': 'PhysicianName',
+            'Collection Date': 'DateCollected',
+            'FACILITIES': 'PhysicianSpecialty',
+            'Received Date': 'DateReceived',
+            'XG ID': 'TestID',
+            'Sample Type': 'SampleType'
+            # 'Barcode' and 'Panel' are kept as-is
+        }
+
+        # Rename the columns
+        df.rename(columns=column_rename_map, inplace=True)
+        # --- END of new renaming logic ---
+
         return df
     except FileNotFoundError:
         print(f"ERROR: Patient demographics file not found at {demographics_path}", file=sys.stderr)

@@ -33,7 +33,8 @@ TEXT_FIELDS = [
     'DateCollected',
     'DateReceived',
     'ReportDate',
-    'Panel' # ADDED: Panel is a text-based key
+    'Panel',
+    'SampleType' # <-- ADDED
 ]
 
 # --- Date Formatting ---
