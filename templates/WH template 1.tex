@@ -132,7 +132,8 @@
             {
               \fp_compare:nTF { \l_tmpa_fp = 0 || \l_tmpa_fp >= 35 } { } {
                 \fp_compare:nTF { 30 < \l_tmpa_fp < 35 } { \tl_set:Nn #3 {Low} } {
-                  \fp_compare:nTF { 0 < \l_tmpa_fp <= 25 } { \tl_set:Nn #3 { \cellcolor{highlightred}{High} } } {
+                  % \fp_compare:nTF { 0 < \l_tmpa_fp <= 25 } { \tl_set:Nn #3 { \cellcolor{highlightred}{High} } } {
+                  \fp_compare:nTF { 0 < \l_tmpa_fp <= 25 } { \tl_set:Nn #3 { \textbf{High} } } {
                     \fp_compare:nTF { 25 < \l_tmpa_fp <= 30 } { \tl_set:Nn #3 {Moderate} } { }
                   }
                 }
@@ -244,7 +245,8 @@
      {%
        \fp_compare:nTF { \l_tmpb_fp > 0 }{%
          \fp_compare:nTF { \l_tmpb_fp <= 25 }%
-           { \cellcolor{highlightred}\textcolor{detectred}{High} }%
+           % { \cellcolor{highlightred}\textcolor{detectred}{High} }%
+           { \textcolor{detectred}{\textbf{High}} }%
            {%
              \fp_compare:nTF { \l_tmpb_fp <= 30 }{ Moderate }{%
                \fp_compare:nTF { \l_tmpb_fp < 35 }{ Low }{ }%
@@ -1010,7 +1012,7 @@ Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
 \noindent
 \fontsize{8}{11}\selectfont 
 \textbf{Methods:} 
-{\small This specimen was analyzed by real-time PCR method developed by Thermo Fisher Scientific. The assay was validated by X-Gene Laboratory following the CLIA standards.} 
+{\small This specimen was analyzed by TaqMan based real-time PCR method developed by ThermoFisher.  The Performance of the test was validated at X-Gene, a CLIA certified and CAP accredited clinical laboratory. } 
 
 \vspace{15pt}
 
@@ -1046,7 +1048,7 @@ Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
 
       \noindent\hspace*{10em}\begin{tabular*}{\linewidth}{ccc}
         \textbf{Low} & \textbf{Moderate} & \textbf{High} \\
-        0.1--4.9     & 5--9.9            & 10--25        \\
+        1--4.9     & 5--9.9            & 10--25        \\
       \end{tabular*}
     \end{minipage}%
     \hfill
@@ -1088,7 +1090,7 @@ Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
 % \normalfont\textbf{Description} \\
 
 \normalfont\textbf{Microorganisms} & \normalfont\textbf{~~~~~Results} & 
-\multicolumn{3}{l}{\normalfont\textbf{Pathogen level} \footnotesize{ 0.1 (low) $\rightarrow$ 25 (high)}} \\
+\multicolumn{3}{l}{\normalfont\textbf{Pathogen level} \footnotesize{ 1 (low) $\rightarrow$ 25 (high)}} \\
 
 
 
