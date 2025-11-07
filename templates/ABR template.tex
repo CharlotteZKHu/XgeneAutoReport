@@ -7,12 +7,17 @@
 \usepackage{graphicx} % For including images
 \usepackage[left=0.5in, right=0.5in, top=0.5in, bottom=0.5in]{geometry} % Margins
 \usepackage{tabularx} % For tables with flexible column widths
+\usepackage{longtable} % For tables that can span multiple pages
 \usepackage{array}    % For advanced column specifications
+% \renewcommand{\tabularxcolumn}[1]{m{#1}}       % For vertical centering
+
 \usepackage{xcolor}   % For custom colors
 \usepackage{fancyhdr} % To remove page numbers
 \usepackage{lastpage} % For "Page X of Y" functionality
 \usepackage{microtype} % Improves text justification and spacing
 \usepackage{lipsum} % For creating placeholder images
+
+\usepackage{adjustbox}
 
 % --- COMMANDS & DEFINITIONS ---
 \pagestyle{empty} % No page numbers
@@ -65,24 +70,27 @@
 \tl_new:N \l_xg_tag_tl
 \tl_new:N \l_xg_desc_tl
 
-% ---- Result: IF(H="X","Not tested", IF(OR(H=0,H="",H>35),"Not detected", IF(0<H<=35,"Detected","")))
+% ---- Result: IF(H=-1,"Not tested", IF(OR(H=0,H="",H>=35),"Not detected", IF(0<H<35,"Detected","")))
 \cs_new_protected:Npn \xg_result_from_h:nN #1 #2
   {
     \tl_clear:N #2
     \tl_if_blank:nTF {#1}
       { \tl_set:Nn #2 {Not~detected} }
       {
-        \str_if_eq:nnTF {#1}{X}
+        % Set the floating point value *once*
+        \fp_set:Nn \l_tmpa_fp {#1}
+        
+        % Check for -1
+        \fp_compare:nTF { \l_tmpa_fp = -1 }
           { \tl_set:Nn #2 {Not~tested} }
           {
-            \fp_set:Nn \l_tmpa_fp {#1}
+            % Original logic for 0, 35+, and (0,35)
             \fp_compare:nTF { \l_tmpa_fp = 0 }
               { \tl_set:Nn #2 {Not~detected} }
               {
                 \fp_compare:nTF { \l_tmpa_fp >= 35 }
                   { \tl_set:Nn #2 {Not~detected} }
                   {
-                    % \fp_compare:nTF { 0 < \l_tmpa_fp <= 35 }
                     \fp_compare:nTF { 0 < \l_tmpa_fp < 35 }
                       { \tl_set:Nn #2 {Detected} }
                       { }
@@ -92,35 +100,22 @@
       }
   }
 
-% ---- Pathogen level: IF(OR(H=0,H>=35),"",35-H)
+% ---- Pathogen level: IF(OR(H=-1,H=0,H>=35),"",35-H)
 \cs_new_protected:Npn \xg_level_from_h:nN #1 #2
   {
     \tl_clear:N #2
     \tl_if_blank:nF {#1}
       {
-        \str_if_eq:nnF {#1}{X}
+        \fp_set:Nn \l_tmpa_fp {#1}
+        % Check for -1
+        \fp_compare:nF { \l_tmpa_fp = -1 }
           {
-            \fp_set:Nn \l_tmpa_fp {#1}
             \fp_compare:nTF { \l_tmpa_fp = 0 || \l_tmpa_fp >= 35 }
               { }
               { \tl_set:Nx #2 { \fp_eval:n { 35 - \l_tmpa_fp } } }
           }
       }
   }
-
-% \cs_new_protected:Npn \xg_level_from_h:nN #1 #2
-%   {
-%     \tl_clear:N #2
-%     \str_if_eq:nnTF {#1}{X}
-%       { }  % Return empty for X
-%       {
-%         \tl_if_blank:nTF {#1}
-%           { }
-%           {
-%             % Your existing fp_compare logic here
-%           }
-%       }
-%   }
 
 % ---- Tag (placeholder; we'll customize later)
 \cs_new_protected:Npn \xg_tag_from_hr:nnN #1 #2 #3
@@ -131,16 +126,18 @@
       { }
       {
         \tl_if_blank:nTF {#1} { } {
-          \str_if_eq:nnTF {#1}{X} { } {
-            \fp_set:Nn \l_tmpa_fp {#1}
-            \fp_compare:nTF { \l_tmpa_fp = 0 || \l_tmpa_fp >= 35 } { } {
-              \fp_compare:nTF { 30 < \l_tmpa_fp < 35 } { \tl_set:Nn #3 {Low} } {
-                \fp_compare:nTF { 0 < \l_tmpa_fp <= 25 } { \tl_set:Nn #3 { \cellcolor{highlightred}{High} } } {
-                  \fp_compare:nTF { 25 < \l_tmpa_fp <= 30 } { \tl_set:Nn #3 {Moderate} } { }
+          \fp_set:Nn \l_tmpa_fp {#1}
+          % Check for -1
+          \fp_compare:nF { \l_tmpa_fp = -1 }
+            {
+              \fp_compare:nTF { \l_tmpa_fp = 0 || \l_tmpa_fp >= 35 } { } {
+                \fp_compare:nTF { 30 < \l_tmpa_fp < 35 } { \tl_set:Nn #3 {Low} } {
+                  \fp_compare:nTF { 0 < \l_tmpa_fp <= 25 } { \tl_set:Nn #3 { \cellcolor{highlightred}{High} } } {
+                    \fp_compare:nTF { 25 < \l_tmpa_fp <= 30 } { \tl_set:Nn #3 {Moderate} } { }
+                  }
                 }
               }
             }
-          }
         }
       }
   }
@@ -190,27 +187,31 @@
 % \ResultPretty{<value>} renders either "[+ box] Detected" or "  Not detected"
 \NewDocumentCommand{\ResultPretty}{m}
  {
-   % Recompute detection *locally* (same rule: (0,35] = Detected)
+   % Recompute detection *locally* (same rule: (0,35) = Detected)
    \tl_if_blank:nTF {#1}{\ResultIndent Not~detected}{
-     \str_if_eq:nnTF {#1}{X}{\ResultIndent Not~tested}{
-       \fp_set:Nn \l_tmpa_fp {#1}
-       \fp_compare:nTF { \l_tmpa_fp > 0 }{
-         % \fp_compare:nTF { \l_tmpa_fp <= 35 }
-         \fp_compare:nTF { \l_tmpa_fp < 35 }
-           { \PlusBox~~Detected }
-           { \ResultIndent Not~detected }
-       }{ \ResultIndent Not~detected }
-     }
+     \fp_set:Nn \l_tmpa_fp {#1}
+     % Check for -1
+     \fp_compare:nTF { \l_tmpa_fp = -1 }
+       { \ResultIndent Not~tested }
+       {
+         \fp_compare:nTF { \l_tmpa_fp > 0 }{
+           \fp_compare:nTF { \l_tmpa_fp < 35 }
+             { \PlusBox~~Detected }
+             { \ResultIndent Not~detected }
+         }{ \ResultIndent Not~detected }
+       }
    }
  }
 
 % ---------- XA(value): (0,35] -> 35 - value ; else 0
 \NewDocumentCommand{\XA}{m}{%
   \tl_if_blank:nTF {#1}{}{%
-    \str_if_eq:nnTF {#1}{X}{}{%
-      \fp_set:Nn \l_tmpb_fp {#1}%
+    \fp_set:Nn \l_tmpb_fp {#1}%
+    % Check for -1 (use \fp_compare:nF to run logic if NOT -1)
+    \fp_compare:nF { \l_tmpb_fp = -1 }
+    {%
       \fp_compare:nTF { \l_tmpb_fp > 0 }{%
-        \fp_compare:nTF { \l_tmpb_fp <= 35 }{ \fp_to_decimal:n { 35 - \l_tmpb_fp } }{  }%
+        \fp_compare:nTF { \l_tmpb_fp < 35 }{ \fp_to_decimal:n { 35 - \l_tmpb_fp } }{  }%
       }{  }%
     }%
   }%
@@ -237,8 +238,10 @@
 \NewDocumentCommand{\XATagPretty}{m}
  {
    \tl_if_blank:nTF {#1}{}{%
-     \str_if_eq:nnTF {#1}{X}{}{%
-       \fp_set:Nn \l_tmpb_fp {#1}
+     \fp_set:Nn \l_tmpb_fp {#1}
+     % Check for -1
+     \fp_compare:nF { \l_tmpb_fp = -1 }
+     {%
        \fp_compare:nTF { \l_tmpb_fp > 0 }{%
          \fp_compare:nTF { \l_tmpb_fp <= 25 }%
            { \cellcolor{highlightred}\textcolor{detectred}{High} }%
@@ -265,10 +268,12 @@
 % Print description only when value in (0,35]; else empty
 \NewDocumentCommand{\Desc}{m m}{%
   \tl_if_blank:nTF {#2}{}{%
-    \str_if_eq:nnTF {#2}{X}{}{%
-      \fp_set:Nn \l_tmpd_fp {#2}%
+    \fp_set:Nn \l_tmpd_fp {#2}%
+    % Check for -1
+    \fp_compare:nF { \l_tmpd_fp = -1 }
+    {%
       \fp_compare:nTF { \l_tmpd_fp > 0 }{%
-        \fp_compare:nTF { \l_tmpd_fp <= 35 }{%
+        \fp_compare:nTF { \l_tmpd_fp < 35 }{%
           \prop_get:NnNTF \g_xg_desc_prop_norm { \xg_norm:n {#1} } \l_tmpa_tl
             { \tl_use:N \l_tmpa_tl }{ }%
         }{ }%
@@ -281,27 +286,18 @@
 % ================== END LOGIC ==================
 
 % ---------- Register descriptions (edit/extend as needed) ----------
-% STIs
-% \DescSet{Neisseria gonorrhoeae}{May cause Pelvic inflammatory disease} 
-\DescSet{Neisseria gonorrhoeae}{May cause PID} 
-\DescSet{Chlamydia trachomatis}{May cause PID}
-\DescSet{Trichomonas vaginalis}{}
-\DescSet{Mycoplasma hominis}{May cause PID}
-\DescSet{Mycoplasma genitalium}{May cause PID}
-\DescSet{Haemophilus ducreyi}{}
-\DescSet{Treponema pallidum}{Causes syphilis}
-
 % Bacteria
-\DescSet{Atopobium vaginae}{May cause preterm delivery or PID}
-\DescSet{BVAB2}{May play a role in BV recurrence}
-\DescSet{Enterococcus faecalis}{Cause aerobic vaginitis}
-\DescSet{Gardnerella vaginalis}{Increase the risk of PID or UTI}
-\DescSet{Megasphaera 1}{Key indicator of BV*}
-\DescSet{Megasphaera 2}{Key indicator of BV*}
-\DescSet{Mobiluncus mulieris}{Key indicator of BV*}
-\DescSet{Prevotella bivia}{Cause recurrence of BV}
-\DescSet{Strep B/ S. agalactiae}{Cause aerobic vaginitis}
-\DescSet{Ureaplasma urealyticum}{Cause aerobic vaginitis}
+\DescSet{Neisseria gonorrhoeae}{}
+\DescSet{Chlamydia trachomatis}{}
+\DescSet{Trichomonas vaginalis}{}
+\DescSet{Mycoplasma genitalium}{}
+\DescSet{Mycoplasma hominis}{}
+\DescSet{Haemophilus ducreyi}{}
+\DescSet{Treponema pallidum}{}
+
+% STIs
+\DescSet{Herpes Virus 1}{}
+\DescSet{Herpes Virus 2}{}
 
 % --- DOCUMENT START ---
 \begin{document}
@@ -331,13 +327,7 @@
 
 % ==== Values Definition ====
 
-% ---------- Patient Information ----------
-
 %% -- DATA_INSERT_POINT -- %%
-
-% You can also do blanks or X:
-% \ValSet{HSV-1}{}
-% \ValSet{HSV-2}{X}
 
 % ---------- Test Results ----------
 
@@ -356,14 +346,30 @@
 %     \XA{\temp}%
 %   \endgroup
 % }
+
+% \newcommand{\XAOf}[1]{%
+%   \begingroup
+%     \def\temp{}%
+%     \ifcsname val@#1\endcsname \edef\temp{\csname val@#1\endcsname}\fi
+%     \ifx\temp\empty\else
+%       \edef\tempx{X}%
+%       \ifx\temp\tempx
+%         % Do nothing - leave cell empty
+%       \else
+%         \XA{\temp}%
+%       \fi
+%     \fi
+%   \endgroup
+% }
+
 \newcommand{\XAOf}[1]{%
   \begingroup
     \def\temp{}%
     \ifcsname val@#1\endcsname \edef\temp{\csname val@#1\endcsname}\fi
     \ifx\temp\empty\else
-      \edef\tempx{X}%
-      \ifx\temp\tempx
-        % Do nothing - leave cell empty
+      % Check if value is -1
+      \ifdim\temp pt = -1pt
+         % Do nothing - leave cell empty
       \else
         \XA{\temp}%
       \fi
@@ -389,7 +395,8 @@
 % (0,25] - "Normal"; (25,30] - "Reduced"; (30,35) - "Greatly reduced"
 \newcommand{\getLactobacillusStatus}[1]{%
     % Check if it's marked as "Not tested"
-    \ifthenelse{\equal{\Val{#1}}{X}}{%
+    \ifthenelse{\equal{\Val{#1}}{-1}}{%
+    % \ifdim\Val{#1}pt = -1pt{%
         % Empty result for "Not tested"
     }{%
         % Numeric checks
@@ -419,37 +426,28 @@
 
 % Test Control function
 % If value > 0, shows "Sample quality pass"
-
 \newcommand{\getTestControlStatus}[1]{%
-    \ifthenelse{\equal{\Val{#1}}{X}}{% If the value is "X", output nothing.
-    }{%
-        % Otherwise, run the original numerical check.
-        \ifdim\Val{#1}pt>0pt
-            Sample quality pass%
-        \else
-            % Empty or you could add "Sample quality fail" if needed
-        \fi
-    }%
+    \ifdim\Val{#1}pt>0pt
+        Sample quality pass%
+    \else
+        % Empty or you could add "Sample quality fail" if needed
+        \ResultIndent Not~detected
+    \fi
+}
+
+\newcommand{\paddedbox}[2][9.7cm]{%
+  \adjustbox{valign=c,minipage=#1}{\vspace{3pt}#2\vspace{3pt}}%
 }
 
 % ---------- Test Summary ----------
 
 % Helper macro to check if a value is detected (0 < value <= 35)
-% \newcommand{\isDetected}[1]{%
-%     \ifthenelse{\lengthtest{\Val{#1} pt > 0 pt} \AND \lengthtest{\Val{#1} pt < 35.01 pt}}{1}{0}%
-% }
-
 \newcommand{\isDetected}[1]{%
-    \ifthenelse{\equal{\Val{#1}}{X}}{0}{% <-- ADD THIS: If value is 'X', return 0
-        \ifthenelse{\equal{\Val{#1}}{}}{0}{% <-- Also good to handle blanks
-            \ifthenelse{\lengthtest{\Val{#1} pt > 0 pt} \AND \lengthtest{\Val{#1} pt < 35.01 pt}}{1}{0}%
-        }%
-    }%
+    \ifthenelse{\lengthtest{\Val{#1} pt > 0 pt} \AND \lengthtest{\Val{#1} pt < 35.01 pt}}{1}{0}%
 }
 
 % Helper macro to get pathogen level
 % "High"-(0,25], "Moderate"-(25,30], "Low"-(30,35]
-
 \newcommand{\getPathogenLevel}[1]{%
     \ifdim\Val{#1}pt>0pt
         \ifdim\Val{#1}pt<25.01pt
@@ -469,30 +467,6 @@
         None%
     \fi
 }
-
-% \newcommand{\getPathogenLevel}[1]{%
-%     \ifthenelse{\equal{\Val{#1}}{X}}{None}{% <-- ADD THIS: If value is 'X', return None
-%         \ifthenelse{\equal{\Val{#1}}{}}{None}{% <-- Also good to handle blanks
-%             \ifdim\Val{#1}pt>0pt
-%                 \ifdim\Val{#1}pt<25.01pt
-%                     High%
-%                 \else
-%                     \ifdim\Val{#1}pt<30.01pt
-%                         Moderate%
-%                     \else
-%                         \ifdim\Val{#1}pt<35.01pt
-%                             Low%
-%                         \else
-%                             None%
-%                         \fi
-%                     \fi
-%                 \fi
-%             \else
-%                 None%
-%             \fi
-%         }%
-%     }%
-% }
 
 % Count BV pathogen levels
 \newcounter{bvHighCount}
@@ -677,61 +651,185 @@
 % Detection macros for each category - simplified approach
 
 % STIs: STIs + Virus (STI related)
+% \newcommand{\checkSTIs}{%
+%     \ifdim\Val{Neisseria gonorrhoeae}pt>0pt true\else%
+%     \ifdim\Val{Chlamydia trachomatis}pt>0pt true\else%
+%     \ifdim\Val{Trichomonas vaginalis}pt>0pt true\else%
+%     \ifdim\Val{Mycoplasma hominis}pt>0pt true\else%
+%     \ifdim\Val{Mycoplasma genitalium}pt>0pt true\else%
+%     \ifdim\Val{Haemophilus ducreyi}pt>0pt true\else%
+%     \ifdim\Val{Treponema pallidum}pt>0pt true\else%
+%     \ifdim\Val{HSV-1}pt>0pt true\else%
+%     \ifdim\Val{HSV-2}pt>0pt true\else%
+%     false\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+% }
 \newcommand{\checkSTIs}{%
-    \ifdim\Val{Neisseria gonorrhoeae}pt>0pt true\else%
-    \ifdim\Val{Chlamydia trachomatis}pt>0pt true\else%
-    \ifdim\Val{Trichomonas vaginalis}pt>0pt true\else%
-    \ifdim\Val{Mycoplasma hominis}pt>0pt true\else%
-    \ifdim\Val{Mycoplasma genitalium}pt>0pt true\else%
-    \ifdim\Val{Haemophilus ducreyi}pt>0pt true\else%
-    \ifdim\Val{Treponema pallidum}pt>0pt true\else%
-    \ifdim\Val{HSV1}pt>0pt true\else%
-    \ifdim\Val{HSV2}pt>0pt true\else%
+    \ifdim\Val{Neisseria gonorrhoeae}pt>0pt
+    \ifdim\Val{Neisseria gonorrhoeae}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Chlamydia trachomatis}pt>0pt \ifdim\Val{Chlamydia trachomatis}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Trichomonas vaginalis}pt>0pt \ifdim\Val{Trichomonas vaginalis}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Mycoplasma hominis}pt>0pt \ifdim\Val{Mycoplasma hominis}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Mycoplasma genitalium}pt>0pt \ifdim\Val{Mycoplasma genitalium}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Haemophilus ducreyi}pt>0pt \ifdim\Val{Haemophilus ducreyi}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Treponema pallidum}pt>0pt \ifdim\Val{Treponema pallidum}pt<35pt true\else false\fi\else%
+    \ifdim\Val{HSV-1}pt>0pt \ifdim\Val{HSV-1}pt<35pt true\else false\fi\else%
+    \ifdim\Val{HSV-2}pt>0pt \ifdim\Val{HSV-2}pt<35pt true\else false\fi\else%
     false\fi\fi\fi\fi\fi\fi\fi\fi\fi%
 }
 
 % BV associate pathogens: Bacteria
+% \newcommand{\checkBV}{%
+%     \ifdim\Val{Atopobium vaginae}pt>0pt true\else 
+%     \ifdim\Val{BVAB2}pt>0pt true\else%
+%     \ifdim\Val{Enterococcus faecalis}pt>0pt true\else%
+%     \ifdim\Val{Gardnerella vaginalis}pt>0pt true\else%
+%     \ifdim\Val{Megasphaera 1}pt>0pt true\else%
+%     \ifdim\Val{Megasphaera 2}pt>0pt true\else%
+%     \ifdim\Val{Mobiluncus mulieris}pt>0pt true\else%
+%     \ifdim\Val{Prevotella bivia}pt>0pt true\else%
+%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else%
+%     \ifdim\Val{Ureaplasma urealyticum}pt>0pt true\else%
+%     false\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+% }
 \newcommand{\checkBV}{%
-    \ifdim\Val{Atopobium vaginae}pt>0pt true\else%
-    \ifdim\Val{BVAB2}pt>0pt true\else%
-    \ifdim\Val{Enterococcus faecalis}pt>0pt true\else%
-    \ifdim\Val{Gardnerella vaginalis}pt>0pt true\else%
-    \ifdim\Val{Megasphaera 1}pt>0pt true\else%
-    \ifdim\Val{Megasphaera 2}pt>0pt true\else%
-    \ifdim\Val{Mobiluncus mulieris}pt>0pt true\else%
-    \ifdim\Val{Prevotella bivia}pt>0pt true\else%
-    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else%
-    \ifdim\Val{Ureaplasma urealyticum}pt>0pt true\else%
+    \ifdim\Val{Atopobium vaginae}pt>0pt \ifdim\Val{Atopobium vaginae}pt<35pt true\else
+    \ifdim\Val{BVAB2}pt>0pt \ifdim\Val{BVAB2}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Enterococcus faecalis}pt>0pt \ifdim\Val{Enterococcus faecalis}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Gardnerella vaginalis}pt>0pt \ifdim\Val{Gardnerella vaginalis}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Megasphaera 1}pt>0pt \ifdim\Val{Megasphaera 1}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Megasphaera 2}pt>0pt \ifdim\Val{Megasphaera 2}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Mobiluncus mulieris}pt>0pt \ifdim\Val{Mobiluncus mulieris}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Prevotella bivia}pt>0pt \ifdim\Val{Prevotella bivia}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Ureaplasma urealyticum}pt>0pt \ifdim\Val{Ureaplasma urealyticum}pt<35pt true\else false\fi\else%
     false\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
 }
 
 % Aerobic vaginitis associate pathogens
+% \newcommand{\checkAerobicVaginitis}{%
+%     \ifdim\Val{Enterococcus faecalis}pt>0pt true\else%
+%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else%
+%     false\fi\fi%
+% }
+% Aerobic vaginitis associate pathogens
 \newcommand{\checkAerobicVaginitis}{%
-    \ifdim\Val{Enterococcus faecalis}pt>0pt true\else%
-    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else%
+    \ifdim\Val{Enterococcus faecalis}pt>0pt \ifdim\Val{Enterococcus faecalis}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else%
     false\fi\fi%
 }
 
 % Group B strep
+% \newcommand{\checkGroupBStrep}{%
+%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else false\fi%
+% }
 \newcommand{\checkGroupBStrep}{%
-    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else false\fi%
+    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else false\fi%
 }
 
 % Candidiasis
+% \newcommand{\checkCandidiasis}{%
+%     \ifdim\Val{Candida albicans}pt>0pt true\else%
+%     \ifdim\Val{Candida auris}pt>0pt true\else%
+%     \ifdim\Val{Candida tropicalis}pt>0pt true\else%
+%     \ifdim\Val{Candida krusei}pt>0pt true\else%
+%     \ifdim\Val{Candida glabrata}pt>0pt true\else%
+%     false\fi\fi\fi\fi\fi%
+% }
 \newcommand{\checkCandidiasis}{%
-    \ifdim\Val{Candida albicans}pt>0pt true\else%
-    \ifdim\Val{Candida auris}pt>0pt true\else%
-    \ifdim\Val{Candida tropicalis}pt>0pt true\else%
-    \ifdim\Val{Candida krusei}pt>0pt true\else%
-    \ifdim\Val{Candida glabrata}pt>0pt true\else%
+    \ifdim\Val{Candida albicans}pt>0pt \ifdim\Val{Candida albicans}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Candida auris}pt>0pt \ifdim\Val{Candida auris}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Candida tropicalis}pt>0pt \ifdim\Val{Candida tropicalis}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Candida krusei}pt>0pt \ifdim\Val{Candida krusei}pt<35pt true\else false\fi\else%
+    \ifdim\Val{Candida glabrata}pt>0pt \ifdim\Val{Candida glabrata}pt<35pt true\else false\fi\else%
     false\fi\fi\fi\fi\fi%
 }
 
 % Vaginal Flora
+% \newcommand{\checkVaginalFlora}{%
+%     \ifdim\Val{Lactobacillus}pt>0pt true\else false\fi%
+% }
 \newcommand{\checkVaginalFlora}{%
-    \ifdim\Val{Lactobacillus}pt>0pt true\else false\fi%
+    \ifdim\Val{Lactobacillus}pt>0pt \ifdim\Val{Lactobacillus}pt<35pt true\else false\fi\else false\fi%
 }
 
+
+% ---------- Check Functions for Each Antibiotic Class ----------
+
+% Cephalosporin antibiotic class
+% Check: OXA1/blaTEM, ampC, blaFOX, CTX-M
+\newcommand{\checkCephalosporin}{%
+    \ifdim\Val{OXA1/blaTEM}pt>0pt \ifdim\Val{OXA1/blaTEM}pt<35pt true\else false\fi\else%
+    \ifdim\Val{ampC}pt>0pt \ifdim\Val{ampC}pt<35pt true\else false\fi\else%
+    \ifdim\Val{blaFOX}pt>0pt \ifdim\Val{blaFOX}pt<35pt true\else false\fi\else%
+    \ifdim\Val{CTX-M}pt>0pt \ifdim\Val{CTX-M}pt<35pt true\else false\fi\else%
+    false\fi\fi\fi\fi%
+}
+
+% Carbapenems
+% Check: OXA48/blaKPC, NDM-1
+\newcommand{\checkCarbapenems}{%
+    \ifdim\Val{OXA48/blaKPC}pt>0pt \ifdim\Val{OXA48/blaKPC}pt<35pt true\else false\fi\else%
+    \ifdim\Val{NDM-1}pt>0pt \ifdim\Val{NDM-1}pt<35pt true\else false\fi\else%
+    false\fi\fi%
+}
+
+% Fluoroquinolones (quinolone) class
+% Check: qnrA/qnrS
+\newcommand{\checkFluoroquinolones}{%
+    \ifdim\Val{qnrA/qnrS}pt>0pt \ifdim\Val{qnrA/qnrS}pt<35pt true\else false\fi\else false\fi%
+}
+
+% Fosfomycin (Monurol)
+% Check: fosA
+\newcommand{\checkFosfomycin}{%
+    \ifdim\Val{fosA}pt>0pt \ifdim\Val{fosA}pt<35pt true\else false\fi\else false\fi%
+}
+
+% Methicillin/Oxacillin (MRSA)
+% Check: mecA
+\newcommand{\checkMethicillin}{%
+    \ifdim\Val{mecA}pt>0pt \ifdim\Val{mecA}pt<35pt true\else false\fi\else false\fi%
+}
+
+% Penicillin/Clavulanate
+% Check: OXA1/blaTEM, ampC, blaFOX, CTX-M (same as Cephalosporin)
+\newcommand{\checkPenicillin}{%
+    \ifdim\Val{OXA1/blaTEM}pt>0pt \ifdim\Val{OXA1/blaTEM}pt<35pt true\else false\fi\else%
+    \ifdim\Val{ampC}pt>0pt \ifdim\Val{ampC}pt<35pt true\else false\fi\else%
+    \ifdim\Val{blaFOX}pt>0pt \ifdim\Val{blaFOX}pt<35pt true\else false\fi\else%
+    \ifdim\Val{CTX-M}pt>0pt \ifdim\Val{CTX-M}pt<35pt true\else false\fi\else%
+    false\fi\fi\fi\fi%
+}
+
+% Trimethoprim and Sulfamethoxazole
+% Check: dfrA1+dfrA5+sul1
+% \newcommand{\checkTrimethoprim}{%
+%     \ifdim\Val{dfrA1+dfrA5+sul1}pt>0pt \ifdim\Val{dfrA1+dfrA5+sul1}pt<35pt true\else false\fi\else false\fi%
+% }
+\newcommand{\checkTrimethoprim}{%
+    \ifdim\Val{dfrA1+dfrA5}pt>0pt \ifdim\Val{dfrA1+dfrA5}pt<35pt true\else false\fi\else%
+    \ifdim\Val{sul1}pt>0pt \ifdim\Val{sul1}pt<35pt true\else false\fi\else%
+    false\fi\fi%
+}
+
+% Vancomycin
+% Check: vanA
+\newcommand{\checkVancomycin}{%
+    \ifdim\Val{vanA}pt>0pt \ifdim\Val{vanA}pt<35pt true\else false\fi\else false\fi%
+}
+
+% ---------- Display Functions ----------
+
+% Function to display resistance status for each class
+\newcommand{\displayResistanceStatus}[2]{%
+    % #1 = Antibiotic class name (not displayed)
+    % #2 = Check function result (true or false)
+    \ifthenelse{\equal{#2}{true}}{%
+        Patient may have poor response to this class antibiotics.%
+    }{%
+        The resistant markers are not detected.%
+    }%
+}
 
 % =================================
 % === Header And Footer
@@ -792,7 +890,7 @@
     % --- Left logos ---
     \raggedright
     \includegraphics[height=0.4in]{../assets/CLIA_icon.png}\\[2pt]
-    \includegraphics[height=0.4in]{../assets/CAP_icon.png}
+    \includegraphics[height=0.55in]{../assets/CAP_icon.png}
     &
     % --- Centered "textbox" (left-aligned inside) ---
     \begin{minipage}{\linewidth}
@@ -800,8 +898,8 @@
         \vspace{0pt}
         % {\fontsize{12}{16}\selectfont \textbf{TEST REPORT}}\\[2pt]
         {\fontsize{12}{14}\selectfont TEST REPORT}\\[6pt]
-        % {\fontsize{16}{22}\selectfont \textbf{Women's Infection Pathogen Profile}}
-        {\fontsize{16}{22}\selectfont Women's Infection Pathogen Profile}
+        {\fontsize{16}{22}\selectfont PCR Test for Antibiotics Resistance}
+        % {\fontsize{16}{22}\selectfont STI \large{(Sexually transmitted infections)} \fontsize{16}{22}\selectfont Test}
     \end{minipage}
     &
     % --- Right logo (with extra right padding from col spec) ---
@@ -819,7 +917,7 @@ CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
 \end{center}
 
 
-\vspace{15pt}
+\vspace{10pt}
 
 % =================================
 % === PATIENT INFO SECTION
@@ -880,7 +978,7 @@ CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
   \begin{tabular}{@{}l l@{}}
     \textbf{Date Collected:} & \Val{DateCollected} \\[4pt]
     \textbf{Date Received:}  & \Val{DateReceived} \\[4pt]
-    \textbf{Sample Type:}    & Vaginal Swab \\[4pt]
+    \textbf{Sample Type:}    & \Val{SampleType} \\[4pt]
     \textbf{Date Reported:}    & \Val{ReportDate}
   \end{tabular}
   \vspace{2pt}
@@ -889,63 +987,119 @@ CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
 \end{tabularx}
 
 
-\vspace{15pt}
+\vspace{13pt}
 
 % =================================
-% === TEST SUMMARY SECTION
+% === TEST RESULTS
 % =================================
+
+% ------- TEST RESULTS (example skeleton) -------
 
 \noindent % Prevents indentation
 % Section Title
-\fontsize{14}{16}\selectfont{TEST SUMMARY}
+% \fontsize{14}{16}\selectfont \textcolor{tabletitlegray}{\textbf{TEST RESULTS}} \\
+\fontsize{14}{16}\selectfont \textcolor{tabletitlegray}{TEST SUMMARY}
+% NEW (same 5 columns, but italics for Name, XA tag, Description)
+% \begin{tabularx}{\textwidth}{>{\itshape}l c l c >{\itshape}X}
+
 \fontsize{10}{13}\selectfont
 \begin{table}[h]
 \centering
 \arrayrulecolor{gray}
 \renewcommand{\arraystretch}{1.7}
-\begin{tabular}{|>{\raggedright\arraybackslash}p{6.5cm}>{\raggedright\arraybackslash}p{4.5cm}>{\raggedright\arraybackslash}p{7cm}|}
+\begin{tabular}{>{\raggedright\arraybackslash}p{8.5cm}>{\raggedright\arraybackslash}p{10cm}}
 
 % \hline
 \arrayrulecolor{lightbar}\specialrule{3pt}{1pt}{0pt}\arrayrulecolor{black}
 
-STIs & 
-\ifthenelse{\equal{\checkSTIs}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\rowcolor{gray!10}
+\textbf{Class of antibiotics} & \textbf{Sensitivity} \\
+
+\hline
+
+\paddedbox{\textbf{Cephalosporin antibiotic class} \\
+\footnotesize{Cefdinir (Omnicef), cephalexin (Keflex), Cefadroxil \\
+Ceftriaxone, Cefazolin, Cefuroxime, Cefepime \\
+Cefixime, Cefaclor}} & \displayResistanceStatus{Cephalosporin antibiotic class}{\checkCephalosporin} \\
+\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+% \hline
+
+\paddedbox{\textbf{Carbapenems} \\
+\footnotesize{Doripenem, Ertapenem, Imipenem, Meropenem.}} & \displayResistanceStatus{Carbapenems}{\checkCarbapenems}
 \\
+\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
 % \hline
-BV associate pathogens & 
-\ifthenelse{\equal{\checkBV}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
-\getBVStatus \\
+
+\paddedbox{\textbf{Fluoroquinolones (quinolone) class} \\
+\footnotesize{Ciprofloxacin (cipro) \\
+Levofloxacin (Levaquin) }} & \displayResistanceStatus{Fluoroquinolones (quinolone) class}{\checkFluoroquinolones} \\
+\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
 % \hline
-Aerobic vaginitis associate pathogens & 
-\ifthenelse{\equal{\checkAerobicVaginitis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
-\\
-% \hline
-Group B strep & 
-\ifthenelse{\equal{\checkGroupBStrep}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
-\\
-% \hline
-Candidiasis & 
-\ifthenelse{\equal{\checkCandidiasis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
-\\
-% \hline
-% Vaginal Flora & 
-% \ifthenelse{\equal{\checkVaginalFlora}{true}}{Detected}{\hspace{3.7em}Not Detected} & 
-% \\
-Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
-% \hline
+
+\paddedbox{\textbf{Fosfomycin (Monurol)}} & \displayResistanceStatus{Fosfomycin (Monurol)}{\checkFosfomycin} \\
+\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+
+\paddedbox{\textbf{Methicillin/Oxacillin (MRSA)}} & \displayResistanceStatus{Methicillin/Oxacillin (MRSA)}{\checkMethicillin} \\
+\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+
+\paddedbox{\textbf{Penicillin/ Clavulanate} \\
+\footnotesize{Augmentin (amoxicillin and clavulanate) \\
+Ampicillin, Dicloxacillin, Nafcillin \\
+Oxacillin, Piperacillin, Ticarcillin \\
+Carbenicillin, Flucloxacillin and more... }} & \displayResistanceStatus{Penicillin/Clavulanate}{\checkPenicillin} \\
+\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+
+\paddedbox{\textbf{Trimethoprim and Sulfamethoxazole} \\
+\footnotesize{(Bactrim, Bactrim DS)  TMP/SMX}} & \displayResistanceStatus{Trimethoprim and Sulfamethoxazole}{\checkTrimethoprim} \\
+\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+
+\paddedbox{\textbf{Vancomycin} \\
+\footnotesize{Vancocin, Firvanq, Lyphocin}} & \displayResistanceStatus{Vancomycin}{\checkVancomycin} \\
+% \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+
 \arrayrulecolor{lightbar}\specialrule{3pt}{0pt}{2pt}\arrayrulecolor{black}
 \end{tabular}
 \end{table}
+
+% ------- PANEL DESCRIPTION -------
+% \noindent
+% \fontsize{9}{11}\selectfont 
+% \fbox{%
+%   \parbox{\dimexpr\textwidth-2\fboxsep\relax}{% keep box exactly \textwidth
+%     \vspace{0.6em}
+%     \noindent
+%     %--- Left block ----------------------------------------------------------
+%     \begin{minipage}[t]{\textwidth}
+%       \textbf{\textit{Pathogen Level:}} The numerical score is converted from PCR results
+%       and categorized as follows:
+
+%       % \vspace{0.1em}
+
+%       \noindent\hspace*{16em}\begin{tabular*}{\linewidth}{ccc}
+%         \textbf{Low} & \textbf{Moderate} & \textbf{High} \\
+%         1--4.9     & 5--9.9            & 10--25        \\
+%       \end{tabular*}
+%     \end{minipage}%
+%     \hfill
+%     %--- Right block ---------------------------------------------------------
+%     % \begin{minipage}[t]{0.28\textwidth}
+%     % % \vspace{0.5em}
+%     %   \textbf{*PID:} Pelvic inflammatory disease\\[0.6em] 
+%     %   \hspace*{0.4em}\textbf{BV:} Bacterial vaginosis
+%     % \end{minipage}
+%     % \vspace{0.6em}
+%   }%
+% }
 
 % \vspace{15pt}
 
 % =================================
 % === FOOTER SECTION
 % =================================
-\noindent
-*This Comprehensive Pathogen Panel is the result of molecular assays and algorithms for the determination of Bacterial Vaginosis (BV) and Aerobic Vaginitis (AV). The BV and AV assay incorporates results from multiple pathogenic organisms.
+% \noindent
+% *This Comprehensive Pathogen Panel is the result of molecular assays and algorithms for the determination of Bacterial Vaginosis (BV) and Aerobic Vaginitis (AV). The BV and AV assay incorporates results from multiple pathogenic organisms.
 
-\vspace{15pt}
+% \vspace{15pt}
 
 % --- Signature Lines ---
 % \begin{tabularx}{\textwidth}{@{} p{4in} X @{}}
@@ -953,6 +1107,33 @@ Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
 %     & 
 %     Approved By:  \\
 % \end{tabularx} \\[25pt]
+
+% \begin{center}
+%   \begin{tabular}{m{0.20\textwidth} m{0.25\textwidth} m{0.20\textwidth} m{0.25\textwidth}}
+%     \raggedleft \textbf{Processed By:} & 
+%     \includegraphics[height=1cm]{../assets/james_sign.png} &
+%     \raggedleft \textbf{Approved By:} & 
+%     \includegraphics[height=1cm]{../assets/sign2.png} \\
+%   \end{tabular}
+% \end{center}
+
+% \vspace{15pt}
+
+\noindent
+\normalsize{\textbf{Methods:}}
+\small{This specimen was analyzed by TaqMan based real-time PCR method developed by ThermoFisher. The Performance of the test was validated at X-Gene, a CLIA certified and CAP accredited clinical laboratory. The tested gene makers associated with antibiotics resistance include blaACT, blaTEM, blaFOX, blaKPC, CTX-M, dfrA1, dfrA5, fosA, mecA, blaNDM, OXA1, OXA48, qnrA, qnrS, sul1, vanA.} 
+
+% \vspace{10pt}
+
+\noindent
+\normalsize{\textbf{Limitation:}}
+\small{The "Detected" result(s) will indicate the existence of target pathogen(s), the test is qualitative assay and the growth level of pathogen represents a relative amount of pathogen in a specimen. The "Not Detected" result indicate the listed pathogens are not detected by this test due to the amount of target pathogen in the specimen is below the detection limit.  The "Not Detected" results does not exclude pathogens that not listed in this test panel.}
+
+% \vspace{10pt}
+
+\noindent
+\normalsize{\textbf{Disclaimer:}}
+\small{The FDA has neither cleared nor approved the assay, nor is FDA pre-market review required. The test is provided as LDT test by laboratory under CLIA regulation that (1) maintains its good standing as a clinical testing laboratory with all mandatory accrediting bodies, and (2) continually demonstrates that its testing protocols and procedures achieve a high degree of analytical accuracy. For further assistance with interpretation of these results, please contact X-Gene Diagnostic's Clinical Support at support@xgenediagnostics.com.}
 
 \begin{center}
   \begin{tabular}{m{0.20\textwidth} m{0.25\textwidth} m{0.20\textwidth} m{0.25\textwidth}}
@@ -963,200 +1144,6 @@ Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
   \end{tabular}
 \end{center}
 
-\vspace{15pt}
-
-\noindent
-\textbf{Methods:} 
-{\small This specimen was analyzed by real-time PCR method developed by Thermo Fisher Scientific. The assay was validated by X-Gene Laboratory following the CLIA standards.} 
-
-\vspace{15pt}
-
-\noindent
-\textbf{Limitation:} 
-{\small The "Detected" result(s) will indicate the existence of target pathogen(s), the test is qualitative assay and the growth level of pathogen represents a relative amount of pathogen in a specimen. The "Not Detected" result indicate the listed pathogens are not detected by this test due to the amount of target pathogen in the specimen is below the detection limit.  The "Not Detected" results does not exclude pathogens that not listed in this test panel.}
-
-\vspace{15pt}
-
-\noindent
-\textbf{Disclaimer:} 
-{\small The FDA has neither cleared nor approved the assay, nor is FDA pre-market review required. The test is provided as LDT test by laboratory under CLIA regulation that (1) maintains its good standing as a clinical testing laboratory with all mandatory accrediting bodies, and (2) continually demonstrates that its testing protocols and procedures achieve a high degree of analytical accuracy. For further assistance with interpretation of these results, please contact X-Gene Diagnostic's Clinical Support at support@xgenediagnostics.com.}
-
-\newpage
-
-% =================================
-% === TEST RESULTS
-% =================================
-
-% ------- PANEL DESCRIPTION -------
-\noindent
-\fbox{%
-  \parbox{\dimexpr\textwidth-2\fboxsep\relax}{% keep box exactly \textwidth
-    \vspace{0.6em}
-    \noindent
-    %--- Left block ----------------------------------------------------------
-    \begin{minipage}[t]{0.63\textwidth}
-      \textbf{\textit{Pathogen Level:}} The numerical score is converted from PCR results
-      and categorized as follows:
-
-      % \vspace{0.1em}
-
-      \noindent\hspace*{10em}\begin{tabular*}{\linewidth}{ccc}
-        \textbf{Low} & \textbf{Moderate} & \textbf{High} \\
-        0.1--4.9     & 5--9.9            & 10--25        \\
-      \end{tabular*}
-    \end{minipage}%
-    \hfill
-    %--- Right block ---------------------------------------------------------
-    \begin{minipage}[t]{0.28\textwidth}
-    % \vspace{0.5em}
-      \textbf{*PID:} Pelvic inflammatory disease\\[0.6em] 
-      \hspace*{0.4em}\textbf{BV:} Bacterial vaginosis
-    \end{minipage}
-    % \vspace{0.6em}
-  }%
-}
-
-\vspace{15pt}
-
-% ------- TEST RESULTS (example skeleton) -------
-
-\noindent % Prevents indentation
-% Section Title
-% \fontsize{14}{16}\selectfont \textcolor{tabletitlegray}{\textbf{TEST RESULTS}} \\
-\fontsize{14}{16}\selectfont \textcolor{tabletitlegray}{TEST RESULTS} \\
-% NEW (same 5 columns, but italics for Name, XA tag, Description)
-% \begin{tabularx}{\textwidth}{>{\itshape}l c l c >{\itshape}X}
-\fontsize{10}{13}\selectfont
-\begin{tabularx}{\textwidth}{>{\itshape}l l c >{\itshape}c >{\itshape\small}X}
-
-% \hline
-\arrayrulecolor{lightbar}\specialrule{3pt}{2pt}{2pt}\arrayrulecolor{black}
-
-\normalfont\textbf{Pathogen} & \normalfont\textbf{~~~~~~Results} & 
-\normalfont\textbf{Pathogen level} & \footnotesize{ 0.1 (low) -25 (high)}& \normalfont\textbf{Description} \\
-
-
-\hline
-% \arrayrulecolor{lightbar}\specialrule{1.2pt}{2pt}{2pt}\arrayrulecolor{black}
-
-% Category title row (bold, full width)
-
-% --------- STIs ---------------
-\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{STIs}} \\
-% Thick gray rule (must be inside the tabular)
-\hline
-
-Neisseria gonorrhoeae  & \ResultOf{Neisseria gonorrhoeae}  & \XAOf{Neisseria gonorrhoeae}  & \XATagOf{Neisseria gonorrhoeae}  & \DescOf{Neisseria gonorrhoeae} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Chlamydia trachomatis  & \ResultOf{Chlamydia trachomatis}  & \XAOf{Chlamydia trachomatis}  & \XATagOf{Chlamydia trachomatis}  & \DescOf{Chlamydia trachomatis} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Trichomonas vaginalis  & \ResultOf{Trichomonas vaginalis}  & \XAOf{Trichomonas vaginalis}  & \XATagOf{Trichomonas vaginalis}  & \DescOf{Trichomonas vaginalis} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Mycoplasma hominis     & \ResultOf{Mycoplasma hominis}     & \XAOf{Mycoplasma hominis}     & \XATagOf{Mycoplasma hominis}     & \DescOf{Mycoplasma hominis} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Mycoplasma genitalium  & \ResultOf{Mycoplasma genitalium}  & \XAOf{Mycoplasma genitalium}  & \XATagOf{Mycoplasma genitalium}  & \DescOf{Mycoplasma genitalium} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Haemophilus ducreyi    & \ResultOf{Haemophilus ducreyi}    & \XAOf{Haemophilus ducreyi}    & \XATagOf{Haemophilus ducreyi}    & \DescOf{Haemophilus ducreyi} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Treponema pallidum     & \ResultOf{Treponema pallidum}     & \XAOf{Treponema pallidum}     & \XATagOf{Treponema pallidum}     & \DescOf{Treponema pallidum} \\
-
-\hline
-
-% --------- Candida ---------------
-% \addlinespace[8pt]
-\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{  Bacteria}} \\
-\hline
-Atopobium vaginae      & \ResultOf{Atopobium vaginae}      & \XAOf{Atopobium vaginae}      & \XATagOf{Atopobium vaginae}      & \DescOf{Atopobium vaginae} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-BVAB2                  & \ResultOf{BVAB2}                  & \XAOf{BVAB2}                  & \XATagOf{BVAB2}                  & \DescOf{BVAB2} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Enterococcus faecalis  & \ResultOf{Enterococcus faecalis}  & \XAOf{Enterococcus faecalis}  & \XATagOf{Enterococcus faecalis}  & \DescOf{Enterococcus faecalis} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Gardnerella vaginalis  & \ResultOf{Gardnerella vaginalis}  & \XAOf{Gardnerella vaginalis}  & \XATagOf{Gardnerella vaginalis}  & \DescOf{Gardnerella vaginalis} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Megasphaera 1          & \ResultOf{Megasphaera 1}          & \XAOf{Megasphaera 1}          & \XATagOf{Megasphaera 1}          & \DescOf{Megasphaera 1} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Megasphaera 2          & \ResultOf{Megasphaera 2}          & \XAOf{Megasphaera 2}          & \XATagOf{Megasphaera 2}          & \DescOf{Megasphaera 2} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Mobiluncus mulieris    & \ResultOf{Mobiluncus mulieris}    & \XAOf{Mobiluncus mulieris}    & \XATagOf{Mobiluncus mulieris}    & \DescOf{Mobiluncus mulieris} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Prevotella bivia       & \ResultOf{Prevotella bivia}       & \XAOf{Prevotella bivia}       & \XATagOf{Prevotella bivia}       & \DescOf{Prevotella bivia} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Strep B/ S. agalactiae & \ResultOf{Strep B/ S. agalactiae} & \XAOf{Strep B/ S. agalactiae} & \XATagOf{Strep B/ S. agalactiae} & \DescOf{Strep B/ S. agalactiae} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Ureaplasma urealyticum & \ResultOf{Ureaplasma urealyticum} & \XAOf{Ureaplasma urealyticum} & \XATagOf{Ureaplasma urealyticum} & \DescOf{Ureaplasma urealyticum} \\
-
-\hline
-
-% --------- Candida ---------------
-\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Candida}} \\
-\hline
-
-Candida albicans   & \ResultOf{Candida albicans}   & \XAOf{Candida albicans}   & \XATagOf{Candida albicans}   & \DescOf{Candida albicans} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Candida auris      & \ResultOf{Candida auris}      & \XAOf{Candida auris}      & \XATagOf{Candida auris}      & \DescOf{Candida auris} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Candida tropicalis & \ResultOf{Candida tropicalis} & \XAOf{Candida tropicalis} & \XATagOf{Candida tropicalis} & \DescOf{Candida tropicalis} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Candida krusei     & \ResultOf{Candida krusei}     & \XAOf{Candida krusei}     & \XATagOf{Candida krusei}     & \DescOf{Candida krusei} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-Candida glabrata   & \ResultOf{Candida glabrata}   & \XAOf{Candida glabrata}   & \XATagOf{Candida glabrata}   & \DescOf{Candida glabrata} \\
-
-\hline
-
-% ---------  Virus (STI related) -----------
-\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Virus (STI related)}} \\
-\hline
-
-HSV-1 & \ResultOf{HSV-1} & \XAOf{HSV-1} & \XATagOf{HSV-1} & \DescOf{HSV-1} \\
-\arrayrulecolor{lighterbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-
-HSV-2 & \ResultOf{HSV-2} & \XAOf{HSV-2} & \XATagOf{HSV-2} & \DescOf{HSV-2} \\
-
-\hline
-
-% ---------  Vaginal flora -----------
-\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Vaginal flora}} \\
-\hline
-
-Lactobacillus crispatus \\ Lactobacillus iners \\ Lactobacillus jensenii \\ Lactobacillus gasseri & \ResultOf{Lactobacillus} & \XAOf{Lactobacillus} & \getLactobacillusStatus{Lactobacillus} & \DescOf{Lactobacillus} \\
-
-\hline
-
-% ---------  Test Control  -----------
-\rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Test Control}} \\
-
-\hline
-
-Sample integrity control & \getTestControlStatus{Sample integrity control} &  &  &  \\
-
-% Blank                    & \ResultPretty{}      & \XA{}      & \XATagPretty{}      & \Desc{BVAB2}{} \\
-% % \hline
-% \arrayrulecolor{lightbar}\specialrule{1pt}{0pt}{0pt}\arrayrulecolor{black}
-% X (not tested input)      & \ResultPretty{X}     & \XA{X}     & \XATagPretty{X}     & \Desc{BVAB2}{X} \\
-% \hline
-
-\arrayrulecolor{lightbar}\specialrule{3pt}{0pt}{2pt}\arrayrulecolor{black}
-
-\end{tabularx}
+% \newpage
 
 \end{document}
