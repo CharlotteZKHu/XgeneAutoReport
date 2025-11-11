@@ -45,6 +45,7 @@
 \usepackage{colortbl}  % for \cellcolor in the tag cell
 
 \usepackage{ifthen}
+\usepackage{xfp}
 
 % A tidy inline red square with a white bold "+"
 \newcommand{\PlusBox}{%
@@ -918,17 +919,46 @@ CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
 % Section Title
 \fontsize{14}{16}\selectfont{TEST SUMMARY}
 \fontsize{10}{13}\selectfont
+
+% Command to check if a value is in range (0, 35)
+\newcommand{\inrange}[1]{%
+  \fpeval{((\Val{#1}) > 0) && ((\Val{#1}) < 35) ? 1 : 0}%
+}
+
+% Command to check if ALL 18 pathogens are out of range
+% Returns 1 if all are out of range (nothing detected), 0 if at least one is in range
+\newcommand{\allPathogensOutOfRange}{%
+  \fpeval{
+    (\inrange{Acinetobacter baumannii} == 0) &&
+    (\inrange{Citrobacter freundii} == 0) &&
+    (\inrange{Enterococcus faecalis} == 0) &&
+    (\inrange{Enterococcus faecium} == 0) &&
+    (\inrange{Enterobacter cloacae} == 0) &&
+    (\inrange{Enterobacter aerogenes} == 0) &&
+    (\inrange{Escherichia coli} == 0) &&
+    (\inrange{Klebsiella pneumoniae} == 0) &&
+    (\inrange{Proteus mirabilis} == 0) &&
+    (\inrange{Proteus vulgaris} == 0) &&
+    (\inrange{Pseudomonas aeruginosa} == 0) &&
+    (\inrange{Staphylococcus aureus} == 0) &&
+    (\inrange{Staphylococcus saprophyticus} == 0) &&
+    (\inrange{Strep B/ S. agalactiae} == 0) &&
+    (\inrange{Ureaplasma urealyticum} == 0) &&
+    (\inrange{Candida albicans} == 0) &&
+    (\inrange{Candida auris} == 0) &&
+    (\inrange{Candida glabrata} == 0)
+    ? 1 : 0
+  }%
+}
+
+% Store the result
+\ValSet{noPathogenDetected}{\allPathogensOutOfRange}
+
+% The table
 \begin{table}[h]
 \centering
 \arrayrulecolor{gray}
 \renewcommand{\arraystretch}{1.7}
-
-% \begin{tabularx}{\textwidth}{
-%   >{\raggedright\arraybackslash}p{9cm}
-%   >{\centering\arraybackslash}p{3.5cm}
-%   >{\centering\arraybackslash}p{3cm}
-%   >{\centering\arraybackslash}p{2cm}
-% }
 \begin{tabularx}{\textwidth}{
   >{\hspace{2em}\raggedright\arraybackslash}X
   >{\centering\arraybackslash}p{2.5cm}
@@ -936,102 +966,109 @@ CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
   >{\centering\arraybackslash}p{2cm}
 }
 
-
-% \begin{tabular}{\textwidth}{>{\itshape}p{5.7cm} c >{\itshape}c >{\itshape\scriptsize}X}
-
-% \hline
 \arrayrulecolor{lightbar}\specialrule{3pt}{1pt}{0pt}\arrayrulecolor{black}
 
 \normalfont\textbf{Detected Pathogen(s)} & 
 \multicolumn{3}{l}{\normalfont\textbf{Pathogen level} \footnotesize{ 0.1 (low) $\rightarrow$ 25 (high)}} \\
 \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
 
-\ifdim\Val{Acinetobacter baumannii}pt>0pt \ifdim\Val{Acinetobacter baumannii}pt<35pt Acinetobacter baumannii & \XAOf{Acinetobacter baumannii} & \XATagOf{Acinetobacter baumannii} \\
-\fi\fi
+% \Val{noPathogenDetected} & & \\
 
-\ifdim\Val{Citrobacter freundii}pt>0pt \ifdim\Val{Citrobacter freundii}pt<35pt
-Citrobacter freundii & \XAOf{Citrobacter freundii} & \XATagOf{Citrobacter freundii} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Enterococcus faecalis}pt>0pt \ifdim\Val{Enterococcus faecalis}pt<35pt
-Enterococcus faecalis & \XAOf{Enterococcus faecalis} & \XATagOf{Enterococcus faecalis} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Enterococcus faecium}pt>0pt \ifdim\Val{Enterococcus faecium}pt<35pt
-Enterococcus faecium & \XAOf{Enterococcus faecium} & \XATagOf{Enterococcus faecium} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Enterobacter cloacae}pt>0pt \ifdim\Val{Enterobacter cloacae}pt<35pt
-Enterobacter cloacae & \XAOf{Enterobacter cloacae} & \XATagOf{Enterobacter cloacae} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Enterobacter aerogenes}pt>0pt \ifdim\Val{Enterobacter aerogenes}pt<35pt
-Enterobacter aerogenes & \XAOf{Enterobacter aerogenes} & \XATagOf{Enterobacter aerogenes} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Escherichia coli}pt>0pt \ifdim\Val{Escherichia coli}pt<35pt
-Escherichia coli & \XAOf{Escherichia coli} & \XATagOf{Escherichia coli} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Klebsiella pneumoniae}pt>0pt \ifdim\Val{Klebsiella pneumoniae}pt<35pt
-Klebsiella pneumoniae & \XAOf{Klebsiella pneumoniae} & \XATagOf{Klebsiella pneumoniae} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Proteus mirabilis}pt>0pt \ifdim\Val{Proteus mirabilis}pt<35pt
-Proteus mirabilis & \XAOf{Proteus mirabilis} & \XATagOf{Proteus mirabilis} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Proteus vulgaris}pt>0pt \ifdim\Val{Proteus vulgaris}pt<35pt
-Proteus vulgaris & \XAOf{Proteus vulgaris} & \XATagOf{Proteus vulgaris} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Pseudomonas aeruginosa}pt>0pt \ifdim\Val{Pseudomonas aeruginosa}pt<35pt
-Pseudomonas aeruginosa & \XAOf{Pseudomonas aeruginosa} & \XATagOf{Pseudomonas aeruginosa} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Staphylococcus aureus}pt>0pt \ifdim\Val{Staphylococcus aureus}pt<35pt
-Staphylococcus aureus & \XAOf{Staphylococcus aureus} & \XATagOf{Staphylococcus aureus} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Staphylococcus saprophyticus}pt>0pt \ifdim\Val{Staphylococcus saprophyticus}pt<35pt
-Staphylococcus saprophyticus & \XAOf{Staphylococcus saprophyticus} & \XATagOf{Staphylococcus saprophyticus} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt
-Strep B/ S. agalactiae & \XAOf{Strep B/ S. agalactiae} & \XATagOf{Strep B/ S. agalactiae} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Ureaplasma urealyticum}pt>0pt \ifdim\Val{Ureaplasma urealyticum}pt<35pt
-Ureaplasma urealyticum & \XAOf{Ureaplasma urealyticum} & \XATagOf{Ureaplasma urealyticum} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Candida albicans}pt>0pt \ifdim\Val{Candida albicans}pt<35pt
-Candida albicans & \XAOf{Candida albicans} & \XATagOf{Candida albicans} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Candida auris}pt>0pt \ifdim\Val{Candida auris}pt<35pt
-Candida auris & \XAOf{Candida auris} & \XATagOf{Candida auris} \\
-\arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
-\fi\fi
-
-\ifdim\Val{Candida glabrata}pt>0pt \ifdim\Val{Candida glabrata}pt<35pt
-Candida glabrata & \XAOf{Candida glabrata} & \XATagOf{Candida glabrata} \\
-\fi\fi
+% Check if no pathogens detected
+\ifnum\Val{noPathogenDetected}=1
+  % \multicolumn{4}{l}{No Pathogen Detected} \\
+  \textit{No Pathogen Detected. } \\
+\else
+  % Show only detected pathogens (in range)
+  \ifnum\inrange{Acinetobacter baumannii}=1
+    Acinetobacter baumannii & \XAOf{Acinetobacter baumannii} & \XATagOf{Acinetobacter baumannii} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Citrobacter freundii}=1
+    Citrobacter freundii & \XAOf{Citrobacter freundii} & \XATagOf{Citrobacter freundii} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Enterococcus faecalis}=1
+    Enterococcus faecalis & \XAOf{Enterococcus faecalis} & \XATagOf{Enterococcus faecalis} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Enterococcus faecium}=1
+    Enterococcus faecium & \XAOf{Enterococcus faecium} & \XATagOf{Enterococcus faecium} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Enterobacter cloacae}=1
+    Enterobacter cloacae & \XAOf{Enterobacter cloacae} & \XATagOf{Enterobacter cloacae} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Enterobacter aerogenes}=1
+    Enterobacter aerogenes & \XAOf{Enterobacter aerogenes} & \XATagOf{Enterobacter aerogenes} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Escherichia coli}=1
+    Escherichia coli & \XAOf{Escherichia coli} & \XATagOf{Escherichia coli} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Klebsiella pneumoniae}=1
+    Klebsiella pneumoniae & \XAOf{Klebsiella pneumoniae} & \XATagOf{Klebsiella pneumoniae} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Proteus mirabilis}=1
+    Proteus mirabilis & \XAOf{Proteus mirabilis} & \XATagOf{Proteus mirabilis} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Proteus vulgaris}=1
+    Proteus vulgaris & \XAOf{Proteus vulgaris} & \XATagOf{Proteus vulgaris} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Pseudomonas aeruginosa}=1
+    Pseudomonas aeruginosa & \XAOf{Pseudomonas aeruginosa} & \XATagOf{Pseudomonas aeruginosa} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Staphylococcus aureus}=1
+    Staphylococcus aureus & \XAOf{Staphylococcus aureus} & \XATagOf{Staphylococcus aureus} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Staphylococcus saprophyticus}=1
+    Staphylococcus saprophyticus & \XAOf{Staphylococcus saprophyticus} & \XATagOf{Staphylococcus saprophyticus} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Strep B/ S. agalactiae}=1
+    Strep B/ S. agalactiae & \XAOf{Strep B/ S. agalactiae} & \XATagOf{Strep B/ S. agalactiae} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Ureaplasma urealyticum}=1
+    Ureaplasma urealyticum & \XAOf{Ureaplasma urealyticum} & \XATagOf{Ureaplasma urealyticum} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Candida albicans}=1
+    Candida albicans & \XAOf{Candida albicans} & \XATagOf{Candida albicans} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Candida auris}=1
+    Candida auris & \XAOf{Candida auris} & \XATagOf{Candida auris} \\
+    \arrayrulecolor{lighterbar}\specialrule{0.7pt}{0pt}{0pt}\arrayrulecolor{black}
+  \fi
+  
+  \ifnum\inrange{Candida glabrata}=1
+    Candida glabrata & \XAOf{Candida glabrata} & \XATagOf{Candida glabrata} \\
+  \fi
+\fi
 
 \arrayrulecolor{lightbar}\specialrule{3pt}{0pt}{2pt}\arrayrulecolor{black}
 \end{tabularx}
