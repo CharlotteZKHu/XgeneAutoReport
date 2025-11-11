@@ -285,6 +285,23 @@
   }%
 }
 
+% Special description function for Lactobacillus
+% Shows description ONLY when value is in range (25, 35)
+\newcommand{\DescOfLactobacillusAdvanced}[1]{%
+    \tl_if_blank:nF {\Val{#1}}{%
+        \fp_set:Nn \l_tmpd_fp {\Val{#1}}%
+        \fp_compare:nF { \l_tmpd_fp = -1 }
+        {%
+            \fp_compare:nTF { \l_tmpd_fp > 25 }{%
+                \fp_compare:nTF { \l_tmpd_fp < 35 }{%
+                    \prop_get:NnNTF \g_xg_desc_prop_norm { \xg_norm:n {#1} } \l_tmpa_tl
+                        { \tl_use:N \l_tmpa_tl }{ }%
+                }{ }%
+            }{ }%
+        }%
+    }%
+}
+
 \ExplSyntaxOff
 % ================== END LOGIC ==================
 
@@ -424,6 +441,14 @@ Resistance to metronidazole and tetracyclines has been reported. }
     \Desc{#1}{\temp}%
   \endgroup
 }
+
+% \newcommand{\DescOfLactobacillus}[2]{%
+%     \ifdim\Val{#1}pt>25pt%
+%         \ifdim\Val{#1}pt<35pt%
+%             #2%
+%         \fi%
+%     \fi%
+% }
 
 % Lactobacillus status function
 % (0,25] - "Normal"; (25,30] - "Reduced"; (30,35) - "Greatly reduced"
@@ -809,6 +834,19 @@ Resistance to metronidazole and tetracyclines has been reported. }
     }%
 }
 
+\newcommand{\showStatusOrNotDetectedWithSpace}[3][2em]{%
+    \hspace{#1}%
+    \ifdim\Val{#2}pt>0pt%
+        \ifdim\Val{#2}pt<35pt%
+            #3%
+        \else%
+            Not~Detected%
+        \fi%
+    \else%
+        Not~Detected%
+    \fi%
+}
+
 % =================================
 % === Header And Footer
 % =================================
@@ -1012,7 +1050,8 @@ Candidiasis &
 % Vaginal Flora & 
 % \ifthenelse{\equal{\checkVaginalFlora}{true}}{Detected}{\hspace{3.7em}Not Detected} & 
 % \\
-Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
+% Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
+Vaginal Flora & \showStatusOrNotDetectedWithSpace{Lactobacillus}{\getLactobacillusStatus{Lactobacillus}} & \\
 % \hline
 
 \arrayrulecolor{lightbar}\specialrule{3pt}{0pt}{2pt}\arrayrulecolor{black}
@@ -1245,7 +1284,8 @@ HSV-2 & \ResultOf{HSV-2} & \XAOf{HSV-2} & \XATagOf{HSV-2} & \paddedbox{\DescOf{H
 
 \parbox[c][1.9cm][c]{3.9cm}{
 Lactobacillus crispatus \\ Lactobacillus iners \\ Lactobacillus jensenii \\ Lactobacillus gasseri
-} & \ResultOf{Lactobacillus} & \XAOf{Lactobacillus} & \getLactobacillusStatus{Lactobacillus} & \paddedbox{\DescOf{Lactobacillus}} \\
+% } & \ResultOf{Lactobacillus} & \XAOf{Lactobacillus} & \getLactobacillusStatus{Lactobacillus} & \paddedbox{\DescOf{Lactobacillus}} \\
+} & \ResultOf{Lactobacillus} & \XAOf{Lactobacillus} & \getLactobacillusStatus{Lactobacillus} & \paddedbox{\DescOfLactobacillusAdvanced{Lactobacillus}} \\
 
 \hline
 
