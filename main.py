@@ -49,13 +49,13 @@ def main():
     # Step 2: Iterate through each PATIENT in the demographics file
     for _, patient_row in demographics_df.iterrows():
         patient_barcode = patient_row['Barcode']
-        patient_panel = patient_row['Panel']
+        patient_panel = patient_row['Panel'] # This is the Panel name, e.g., "WHP"
         
         # Step 3: Use the Crosswalk to find the correct template and sheet
         try:
             crosswalk_entry = crosswalk_df.loc[patient_panel]
             template_name = crosswalk_entry['Result Template']
-            result_sheet_name = crosswalk_entry['Result Sheet']
+            result_sheet_name = crosswalk_entry['Result Sheet'] # This is the sheet, e.g., "WH" or "UTI"
         except KeyError:
             print(f"  > ERROR: Panel '{patient_panel}' for Barcode '{patient_barcode}' not found in Crosswalk. Skipping patient.", file=sys.stderr)
             failure_count += 1
@@ -103,10 +103,13 @@ def main():
             record_dict = merged_record_df.to_dict('records')[0]
             
             # Step 8: Compile the report
+            # --- UPDATED: Pass patient_panel and result_sheet_name ---
             success = report_compiler.compile_single_report(
                 record_dict, 
-                template_path,  # Pass the DYNAMIC template path
-                config.OUTPUT_DIR
+                template_path,
+                config.OUTPUT_DIR,
+                patient_panel,      # e.g., "WHP" or "WIP-CPP+WHP"
+                result_sheet_name   # e.g., "WH" or "UTI"
             )
             if success:
                 success_count += 1

@@ -2,6 +2,7 @@ import subprocess
 import os
 import pandas as pd
 import sys
+import re # Import regular expressions for sanitizing
 import config  # Import the configuration file
 from datetime import datetime # Import datetime for type checking
 
@@ -19,6 +20,17 @@ LATEX_SPECIAL_CHARS = [
     ('~', r'\textasciitilde{}'),
     ('^', r'\textasciicircum{}'),
 ]
+
+def _sanitize_for_filename(text_string):
+    """Removes spaces, slashes, and other risky characters for a filename."""
+    if not isinstance(text_string, str):
+        text_string = str(text_string)
+    
+    # Replace spaces with nothing
+    text_string = text_string.replace(' ', '')
+    # Remove any character that is not a letter, number, hyphen, or underscore
+    text_string = re.sub(r'[^\w\-_]', '', text_string)
+    return text_string
 
 def generate_valset_string(report_data):
     """
@@ -73,40 +85,61 @@ def generate_valset_string(report_data):
         
     return "\n".join(definitions)
 
-def compile_single_report(report_data, template_path, output_folder):
+def compile_single_report(report_data, template_path, base_output_folder, panel_name, result_sheet_name):
     """
     Generates and compiles a single LaTeX report.
-    (This function remains unchanged from before)
+    
+    NEW: Saves to a subfolder (base_output_folder / result_sheet_name)
+    NEW: Uses the new filename format (TestID_PanelName_PatientName_Report.pdf)
     """
-    patient_name = f"{report_data.get('PatientFirstName', 'Report')}_{report_data.get('PatientLastName', 'Patient')}"
-    test_id = report_data.get('TestID', 'UnknownTest')
+    
+    # --- 1. Create New Filename ---
+    test_id = _sanitize_for_filename(report_data.get('TestID', 'UnknownTestID'))
+    panel = _sanitize_for_filename(panel_name) # Use the master panel name
+    fname = _sanitize_for_filename(report_data.get('PatientFirstName', 'NoFirstName'))
+    lname = _sanitize_for_filename(report_data.get('PatientLastName', 'NoLastName'))
+    patient_name = f"{fname}{lname}"
+    
+    # Format: XG12345_WHP_JaneDoe_Report
+    base_filename = f"{test_id}_{panel}_{patient_name}_Report"
+
     print(f"--- Processing: {patient_name} (Test ID: {test_id}) ---")
 
-    # 1. Prepare LaTeX content
+    # --- 2. Create New Output Subfolder ---
+    # We organize by the Result Sheet name (e.g., "WH", "UTI")
+    panel_output_folder = os.path.join(base_output_folder, result_sheet_name)
+    if not os.path.exists(panel_output_folder):
+        os.makedirs(panel_output_folder)
+        print(f"  > Created subfolder: {panel_output_folder}")
+
+    # 3. Prepare LaTeX content
     valset_string = generate_valset_string(report_data)
     with open(template_path, 'r') as f:
         template_content = f.read()
     final_tex_content = template_content.replace('%% -- DATA_INSERT_POINT -- %%', valset_string)
 
-    # 2. Save the temporary .tex file
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    
-    base_filename = f"Report_{patient_name}_{test_id}"
-    output_tex_path = os.path.join(output_folder, f"{base_filename}.tex")
+    # 4. Save the temporary .tex file (in the new subfolder)
+    output_tex_path = os.path.join(panel_output_folder, f"{base_filename}.tex")
     
     with open(output_tex_path, 'w') as f:
         f.write(final_tex_content)
     print(f"  > Generated .tex file: {os.path.basename(output_tex_path)}")
 
-    # 3. Compile the PDF using pdflatex
+    # 5. Compile the PDF using pdflatex
     for i in range(2):
-        cmd = ["pdflatex", "-interaction=nonstopmode", f"-jobname={base_filename}", f"-output-directory={output_folder}", output_tex_path]
+        # --- UPDATED: Use the new folder and filename ---
+        cmd = [
+            "pdflatex", 
+            "-interaction=nonstopmode", 
+            f"-jobname={base_filename}", 
+            f"-output-directory={panel_output_folder}", # Tell pdflatex where to put files
+            output_tex_path
+        ]
         process = subprocess.run(cmd, capture_output=True, text=True)
         
         if process.returncode != 0:
             print(f"  > ERROR: LaTeX compilation failed on run {i+1}.", file=sys.stderr)
-            print(f"  > See log file for details: {os.path.join(output_folder, f'{base_filename}.log')}", file=sys.stderr)
+            print(f"  > See log file for details: {os.path.join(panel_output_folder, f'{base_filename}.log')}", file=sys.stderr)
             return False
 
     print(f"  > ✅ Successfully compiled PDF!")
