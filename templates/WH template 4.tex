@@ -18,6 +18,7 @@
 \usepackage{lipsum} % For creating placeholder images
 
 \usepackage{adjustbox}
+\usepackage{xfp} % For floating point calculations
 
 % --- COMMANDS & DEFINITIONS ---
 \pagestyle{empty} % No page numbers
@@ -349,6 +350,15 @@ Resistance to metronidazole and tetracyclines has been reported. }
 %   \fi
 % }
 
+% Helper command to get named values (for use in fpeval)
+\newcommand{\ValGet}[1]{%
+  \ifcsname val@#1\endcsname
+    \csname val@#1\endcsname
+  \else
+    0%
+  \fi
+}
+
 % ==== Values Definition ====
 
 %% -- DATA_INSERT_POINT -- %%
@@ -676,104 +686,127 @@ Resistance to metronidazole and tetracyclines has been reported. }
 
 % STIs: STIs + Virus (STI related)
 % \newcommand{\checkSTIs}{%
-%     \ifdim\Val{Neisseria gonorrhoeae}pt>0pt true\else%
-%     \ifdim\Val{Chlamydia trachomatis}pt>0pt true\else%
-%     \ifdim\Val{Trichomonas vaginalis}pt>0pt true\else%
-%     \ifdim\Val{Mycoplasma hominis}pt>0pt true\else%
-%     \ifdim\Val{Mycoplasma genitalium}pt>0pt true\else%
-%     \ifdim\Val{Haemophilus ducreyi}pt>0pt true\else%
-%     \ifdim\Val{Treponema pallidum}pt>0pt true\else%
-%     \ifdim\Val{HSV-1}pt>0pt true\else%
-%     \ifdim\Val{HSV-2}pt>0pt true\else%
+%     \ifdim\Val{Neisseria gonorrhoeae}pt>0pt
+%     \ifdim\Val{Neisseria gonorrhoeae}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Chlamydia trachomatis}pt>0pt \ifdim\Val{Chlamydia trachomatis}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Trichomonas vaginalis}pt>0pt \ifdim\Val{Trichomonas vaginalis}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Mycoplasma hominis}pt>0pt \ifdim\Val{Mycoplasma hominis}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Mycoplasma genitalium}pt>0pt \ifdim\Val{Mycoplasma genitalium}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Haemophilus ducreyi}pt>0pt \ifdim\Val{Haemophilus ducreyi}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Treponema pallidum}pt>0pt \ifdim\Val{Treponema pallidum}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{HSV-1}pt>0pt \ifdim\Val{HSV-1}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{HSV-2}pt>0pt \ifdim\Val{HSV-2}pt<35pt true\else false\fi\else%
 %     false\fi\fi\fi\fi\fi\fi\fi\fi\fi%
 % }
+
 \newcommand{\checkSTIs}{%
-    \ifdim\Val{Neisseria gonorrhoeae}pt>0pt
-    \ifdim\Val{Neisseria gonorrhoeae}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Chlamydia trachomatis}pt>0pt \ifdim\Val{Chlamydia trachomatis}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Trichomonas vaginalis}pt>0pt \ifdim\Val{Trichomonas vaginalis}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Mycoplasma hominis}pt>0pt \ifdim\Val{Mycoplasma hominis}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Mycoplasma genitalium}pt>0pt \ifdim\Val{Mycoplasma genitalium}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Haemophilus ducreyi}pt>0pt \ifdim\Val{Haemophilus ducreyi}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Treponema pallidum}pt>0pt \ifdim\Val{Treponema pallidum}pt<35pt true\else false\fi\else%
-    \ifdim\Val{HSV-1}pt>0pt \ifdim\Val{HSV-1}pt<35pt true\else false\fi\else%
-    \ifdim\Val{HSV-2}pt>0pt \ifdim\Val{HSV-2}pt<35pt true\else false\fi\else%
-    false\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+    \fpeval{
+        (((\ValGet{Neisseria gonorrhoeae}) > 0) && ((\ValGet{Neisseria gonorrhoeae}) < 35)) ||
+        (((\ValGet{Chlamydia trachomatis}) > 0) && ((\ValGet{Chlamydia trachomatis}) < 35)) ||
+        (((\ValGet{Trichomonas vaginalis}) > 0) && ((\ValGet{Trichomonas vaginalis}) < 35)) ||
+        (((\ValGet{Mycoplasma hominis}) > 0) && ((\ValGet{Mycoplasma hominis}) < 35)) ||
+        (((\ValGet{Mycoplasma genitalium}) > 0) && ((\ValGet{Mycoplasma genitalium}) < 35)) ||
+        (((\ValGet{Haemophilus ducreyi}) > 0) && ((\ValGet{Haemophilus ducreyi}) < 35)) ||
+        (((\ValGet{Treponema pallidum}) > 0) && ((\ValGet{Treponema pallidum}) < 35)) ||
+        (((\ValGet{HSV-1}) > 0) && ((\ValGet{HSV-1}) < 35)) ||
+        (((\ValGet{HSV-2}) > 0) && ((\ValGet{HSV-2}) < 35))
+        ? 1 : 0
+    }%
 }
 
 % BV associate pathogens: Bacteria
 % \newcommand{\checkBV}{%
-%     \ifdim\Val{Atopobium vaginae}pt>0pt true\else 
-%     \ifdim\Val{BVAB2}pt>0pt true\else%
-%     \ifdim\Val{Enterococcus faecalis}pt>0pt true\else%
-%     \ifdim\Val{Gardnerella vaginalis}pt>0pt true\else%
-%     \ifdim\Val{Megasphaera 1}pt>0pt true\else%
-%     \ifdim\Val{Megasphaera 2}pt>0pt true\else%
-%     \ifdim\Val{Mobiluncus mulieris}pt>0pt true\else%
-%     \ifdim\Val{Prevotella bivia}pt>0pt true\else%
-%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else%
-%     \ifdim\Val{Ureaplasma urealyticum}pt>0pt true\else%
+%     % \ifdim\Val{Atopobium vaginae}pt>0pt \ifdim\Val{Atopobium vaginae}pt<35pt true\else
+%     \ifdim\Val{Atopobium vaginae}pt>0pt \ifdim\Val{Atopobium vaginae}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{BVAB2}pt>0pt \ifdim\Val{BVAB2}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Enterococcus faecalis}pt>0pt \ifdim\Val{Enterococcus faecalis}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Gardnerella vaginalis}pt>0pt \ifdim\Val{Gardnerella vaginalis}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Megasphaera 1}pt>0pt \ifdim\Val{Megasphaera 1}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Megasphaera 2}pt>0pt \ifdim\Val{Megasphaera 2}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Mobiluncus mulieris}pt>0pt \ifdim\Val{Mobiluncus mulieris}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Prevotella bivia}pt>0pt \ifdim\Val{Prevotella bivia}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Ureaplasma urealyticum}pt>0pt \ifdim\Val{Ureaplasma urealyticum}pt<35pt true\else false\fi\else%
 %     false\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+%     % false\fi\fi\fi\fi\fi\fi\fi\fi\fi%
 % }
+
 \newcommand{\checkBV}{%
-    \ifdim\Val{Atopobium vaginae}pt>0pt \ifdim\Val{Atopobium vaginae}pt<35pt true\else
-    \ifdim\Val{BVAB2}pt>0pt \ifdim\Val{BVAB2}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Enterococcus faecalis}pt>0pt \ifdim\Val{Enterococcus faecalis}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Gardnerella vaginalis}pt>0pt \ifdim\Val{Gardnerella vaginalis}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Megasphaera 1}pt>0pt \ifdim\Val{Megasphaera 1}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Megasphaera 2}pt>0pt \ifdim\Val{Megasphaera 2}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Mobiluncus mulieris}pt>0pt \ifdim\Val{Mobiluncus mulieris}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Prevotella bivia}pt>0pt \ifdim\Val{Prevotella bivia}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Ureaplasma urealyticum}pt>0pt \ifdim\Val{Ureaplasma urealyticum}pt<35pt true\else false\fi\else%
-    false\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi%
+    \fpeval{
+        (((\ValGet{Atopobium vaginae}) > 0) && ((\ValGet{Atopobium vaginae}) < 35)) ||
+        (((\ValGet{BVAB2}) > 0) && ((\ValGet{BVAB2}) < 35)) ||
+        (((\ValGet{Enterococcus faecalis}) > 0) && ((\ValGet{Enterococcus faecalis}) < 35)) ||
+        (((\ValGet{Gardnerella vaginalis}) > 0) && ((\ValGet{Gardnerella vaginalis}) < 35)) ||
+        (((\ValGet{Megasphaera 1}) > 0) && ((\ValGet{Megasphaera 1}) < 35)) ||
+        (((\ValGet{Megasphaera 2}) > 0) && ((\ValGet{Megasphaera 2}) < 35)) ||
+        (((\ValGet{Mobiluncus mulieris}) > 0) && ((\ValGet{Mobiluncus mulieris}) < 35)) ||
+        (((\ValGet{Prevotella bivia}) > 0) && ((\ValGet{Prevotella bivia}) < 35)) ||
+        (((\ValGet{Strep B/ S. agalactiae}) > 0) && ((\ValGet{Strep B/ S. agalactiae}) < 35)) ||
+        (((\ValGet{Ureaplasma urealyticum}) > 0) && ((\ValGet{Ureaplasma urealyticum}) < 35))
+        ? 1 : 0
+    }%
 }
+
 
 % Aerobic vaginitis associate pathogens
 % \newcommand{\checkAerobicVaginitis}{%
-%     \ifdim\Val{Enterococcus faecalis}pt>0pt true\else%
-%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else%
+%     \ifdim\Val{Enterococcus faecalis}pt>0pt \ifdim\Val{Enterococcus faecalis}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else%
 %     false\fi\fi%
 % }
-% Aerobic vaginitis associate pathogens
+
 \newcommand{\checkAerobicVaginitis}{%
-    \ifdim\Val{Enterococcus faecalis}pt>0pt \ifdim\Val{Enterococcus faecalis}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else%
-    false\fi\fi%
+    \fpeval{
+        (((\ValGet{Enterococcus faecalis}) > 0) && ((\ValGet{Enterococcus faecalis}) < 35)) ||
+        (((\ValGet{Strep B/ S. agalactiae}) > 0) && ((\ValGet{Strep B/ S. agalactiae}) < 35))
+        ? 1 : 0
+    }%
 }
 
 % Group B strep
 % \newcommand{\checkGroupBStrep}{%
-%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt true\else false\fi%
+%     \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else false\fi%
 % }
+
 \newcommand{\checkGroupBStrep}{%
-    \ifdim\Val{Strep B/ S. agalactiae}pt>0pt \ifdim\Val{Strep B/ S. agalactiae}pt<35pt true\else false\fi\else false\fi%
+    \fpeval{
+        (((\ValGet{Strep B/ S. agalactiae}) > 0) && ((\ValGet{Strep B/ S. agalactiae}) < 35))
+        ? 1 : 0
+    }%
 }
 
 % Candidiasis
 % \newcommand{\checkCandidiasis}{%
-%     \ifdim\Val{Candida albicans}pt>0pt true\else%
-%     \ifdim\Val{Candida auris}pt>0pt true\else%
-%     \ifdim\Val{Candida tropicalis}pt>0pt true\else%
-%     \ifdim\Val{Candida krusei}pt>0pt true\else%
-%     \ifdim\Val{Candida glabrata}pt>0pt true\else%
+%     \ifdim\Val{Candida albicans}pt>0pt \ifdim\Val{Candida albicans}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Candida auris}pt>0pt \ifdim\Val{Candida auris}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Candida tropicalis}pt>0pt \ifdim\Val{Candida tropicalis}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Candida krusei}pt>0pt \ifdim\Val{Candida krusei}pt<35pt true\else false\fi\else%
+%     \ifdim\Val{Candida glabrata}pt>0pt \ifdim\Val{Candida glabrata}pt<35pt true\else false\fi\else%
 %     false\fi\fi\fi\fi\fi%
 % }
+
 \newcommand{\checkCandidiasis}{%
-    \ifdim\Val{Candida albicans}pt>0pt \ifdim\Val{Candida albicans}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Candida auris}pt>0pt \ifdim\Val{Candida auris}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Candida tropicalis}pt>0pt \ifdim\Val{Candida tropicalis}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Candida krusei}pt>0pt \ifdim\Val{Candida krusei}pt<35pt true\else false\fi\else%
-    \ifdim\Val{Candida glabrata}pt>0pt \ifdim\Val{Candida glabrata}pt<35pt true\else false\fi\else%
-    false\fi\fi\fi\fi\fi%
+    \fpeval{
+        (((\ValGet{Candida albicans}) > 0) && ((\ValGet{Candida albicans}) < 35)) ||
+        (((\ValGet{Candida auris}) > 0) && ((\ValGet{Candida auris}) < 35)) ||
+        (((\ValGet{Candida tropicalis}) > 0) && ((\ValGet{Candida tropicalis}) < 35)) ||
+        (((\ValGet{Candida krusei}) > 0) && ((\ValGet{Candida krusei}) < 35)) ||
+        (((\ValGet{Candida glabrata}) > 0) && ((\ValGet{Candida glabrata}) < 35))
+        ? 1 : 0
+    }%
 }
 
 % Vaginal Flora
+
 % \newcommand{\checkVaginalFlora}{%
-%     \ifdim\Val{Lactobacillus}pt>0pt true\else false\fi%
+%     \ifdim\Val{Lactobacillus}pt>0pt \ifdim\Val{Lactobacillus}pt<35pt true\else false\fi\else false\fi%
 % }
+
 \newcommand{\checkVaginalFlora}{%
-    \ifdim\Val{Lactobacillus}pt>0pt \ifdim\Val{Lactobacillus}pt<35pt true\else false\fi\else false\fi%
+    \fpeval{
+        (((\ValGet{Lactobacillus}) > 0) && ((\ValGet{Lactobacillus}) < 35))
+        ? 1 : 0
+    }%
 }
 
 % =================================
@@ -952,23 +985,28 @@ CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
 \arrayrulecolor{lightbar}\specialrule{3pt}{1pt}{0pt}\arrayrulecolor{black}
 
 STIs & 
-\ifthenelse{\equal{\checkSTIs}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+% \ifthenelse{\equal{\checkSTIs}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} &
+\ifthenelse{\equal{\checkSTIs}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
 \\
 % \hline
 BV associate pathogens & 
-\ifthenelse{\equal{\checkBV}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+% \ifthenelse{\equal{\checkBV}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\ifthenelse{\equal{\checkBV}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} &
 \getBVStatus \\
 % \hline
 Aerobic vaginitis associate pathogens & 
-\ifthenelse{\equal{\checkAerobicVaginitis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+% \ifthenelse{\equal{\checkAerobicVaginitis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\ifthenelse{\equal{\checkAerobicVaginitis}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
 \\
 % \hline
 Group B strep & 
-\ifthenelse{\equal{\checkGroupBStrep}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+% \ifthenelse{\equal{\checkGroupBStrep}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\ifthenelse{\equal{\checkGroupBStrep}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
 \\
 % \hline
 Candidiasis & 
-\ifthenelse{\equal{\checkCandidiasis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+% \ifthenelse{\equal{\checkCandidiasis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\ifthenelse{\equal{\checkCandidiasis}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
 \\
 % \hline
 % Vaginal Flora & 
@@ -1012,7 +1050,7 @@ Vaginal Flora & \hspace{1.7em} \getLactobacillusStatus{Lactobacillus} & \\
 \noindent
 \fontsize{8}{11}\selectfont 
 \textbf{Methods:} 
-{\small This specimen was analyzed by TaqMan based real-time PCR method developed by ThermoFisher.  The Performance of the test was validated at X-Gene, a CLIA certified and CAP accredited clinical laboratory.} 
+{\small This specimen was analyzed by TaqMan based real-time PCR method developed by ThermoFisher.  The Performance of the test was validated at X-Gene, a CLIA certified and CAP accredited clinical laboratory. } 
 
 \vspace{15pt}
 
