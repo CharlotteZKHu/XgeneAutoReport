@@ -825,7 +825,7 @@
     % #1 = Antibiotic class name (not displayed)
     % #2 = Check function result (true or false)
     \ifthenelse{\equal{#2}{true}}{%
-        Patient may have poor response to this class antibiotics.%
+        \redPlusBox{} \color{red}{\textit{\textbf{Patient may have poor response to this class antibiotics.}}}%
     }{%
         The resistant markers are not detected.%
     }%
