@@ -1,57 +1,54 @@
-@echo off
-REM --- Automated Report Generation Runner (Ultra-Simplified) ---
-REM This script assumes you have a Python environment (like conda or system)
-REM already activated and all dependencies (pandas, openpyxl) installed.
-REM
-REM It will only ask for file paths and run the main script.
+#!/bin/bash
+# run_win.sh - accepts two args (or will ask interactively if none provided)
+MAIN_SCRIPT="main.py"
 
-REM --- Configuration ---
-SET "MAIN_SCRIPT=main.py"
+echo "=========================================="
+echo " Starting Report Generator Setup Check..."
+echo "=========================================="
+echo ""
 
-REM --- Main Logic ---
-echo ==========================================
-echo       Starting Report Generator
-echo ==========================================
+# # Check for Python
+# if ! command -v python >/dev/null 2>&1; then
+#     echo " > ERROR: Python is not installed or not in PATH."
+#     exit 1
+# fi
 
-REM --- Interactive Input ---
-echo.
-echo Please provide the paths to your data files.
-echo You can drag and drop the file onto this window to get its full path.
-echo.
+# If two args supplied, use them; otherwise prompt (useful when run from Git Bash interactively)
+if [ "$#" -ge 2 ]; then
+    demographics_path="$1"
+    results_path="$2"
+else
+    echo "Please provide the paths to your data files."
+    echo "You can drag and drop the file onto the terminal."
+    echo ""
+    read -p " > Enter path to DEMOGRAPHICS file: " demographics_path
+    read -p " > Enter path to LAB RESULTS file: " results_path
+fi
 
-REM Prompt for the demographics file path
-set /p demographics_path=" > Enter path to DEMOGRAPHICS file: "
+# sanitize: strip surrounding quotes if any
+demographics_path="${demographics_path%\"}"
+demographics_path="${demographics_path#\"}"
+results_path="${results_path%\"}"
+results_path="${results_path#\"}"
 
-REM Prompt for the lab results file path
-set /p results_path=" > Enter path to LAB RESULTS file: "
+# For Windows paths, Python expects either:
+# 1. Forward slashes: C:/Users/...
+# 2. Raw strings with backslashes
+# Since we're passing via command line, convert backslashes to forward slashes
+# But we need to be careful to preserve the structure
 
-REM Check if inputs are empty
-IF "%demographics_path%"=="" (
-    echo.
-    echo  > ERROR: Demographics file path is required. Exiting.
-    pause
-    exit /b
-)
-IF "%results_path%"=="" (
-    echo.
-    echo  > ERROR: Lab results file path is required. Exiting.
-    pause
-    exit /b
-)
+# Use tr instead of sed for more reliable conversion
+demographics_path=$(echo "$demographics_path" | tr '\\' '/')
+results_path=$(echo "$results_path" | tr '\\' '/')
 
-REM --- End of input section ---
+echo ""
+echo " > Running with:"
+echo "   demographics: $demographics_path"
+echo "   results:      $results_path"
+echo ""
 
-REM --- Run the main Python script ---
-echo.
-echo  > Paths received. Starting the report generator...
-echo.
-REM Pass the collected paths as arguments. Quotes are important!
-python %MAIN_SCRIPT% --demographics "%demographics_path%" --results "%results_path%"
+python "$MAIN_SCRIPT" --demographics "$demographics_path" --results "$results_path"
 
-REM --- Finish ---
-echo.
-echo  > Process finished.
-echo ==========================================
-echo.
-echo Press any key to exit...
-pause >nul
+echo ""
+echo " > Process finished."
+echo "=========================================="
