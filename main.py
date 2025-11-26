@@ -97,7 +97,9 @@ def main():
             merged_record_df = pd.merge(result_df_row, patient_df_row.drop(columns=['Panel']), on='Barcode', how='left')
 
             # Step 7: Validate the single, merged record
-            data_handler.validate_data(merged_record_df, f"{result_sheet_name} row {result_index + 2}")
+            # --- REMOVED OLD VALIDATION CALL HERE ---
+            # The validation is now handled inside compile_single_report in report_compiler.py
+            # data_handler.validate_data(merged_record_df, f"{result_sheet_name} row {result_index + 2}")
             
             # Convert the single-row DataFrame back to a dictionary for compilation
             record_dict = merged_record_df.to_dict('records')[0]

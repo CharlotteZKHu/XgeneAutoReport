@@ -32,6 +32,56 @@ def _sanitize_for_filename(text_string):
     text_string = re.sub(r'[^\w\-_]', '', text_string)
     return text_string
 
+def _validate_record_integrity(report_data):
+    """
+    Checks for data issues and prints warnings to the console.
+    1. Checks for dates in the future.
+    2. Checks for missing values in required text fields.
+    """
+    warnings = []
+    today = datetime.now()
+    
+    # ANSI Color Codes for the terminal
+    RED = '\033[91m'
+    RESET = '\033[0m'
+    
+    # 1. Check Dates (Future Check)
+    for field in config.DATE_FIELDS:
+        val = report_data.get(field)
+        # Check if value exists and is not empty string
+        if pd.notna(val) and str(val).strip() != '':
+            try:
+                # Handle both datetime objects and strings
+                if isinstance(val, (datetime, pd.Timestamp)):
+                    date_val = val
+                else:
+                    date_val = pd.to_datetime(val)
+                
+                if date_val > today:
+                     # Added red icon and color code
+                     warnings.append(f"  > {RED}❗ WARNING{RESET}: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
+            except Exception:
+                # If date parsing fails, we ignore it here (it might just be empty or weird text)
+                pass
+
+    # 2. Check Missing Values (Required Text Fields)
+    for field in config.TEXT_FIELDS:
+        # Skip ReportDate because we auto-fill it later if it's missing
+        if field == 'ReportDate': 
+            continue 
+        
+        val = report_data.get(field)
+        # Check for NaN, None, or empty string (after stripping whitespace)
+        # This ensures we catch cells that are just spaces or empty text
+        if pd.isna(val) or str(val).strip() == '':
+            # Added red icon and color code
+            warnings.append(f"  > {RED}❗ WARNING{RESET}: Missing value for variable '{field}'")
+    
+    # Print all warnings found
+    if warnings:
+        for w in warnings:
+            print(w)
+
 def generate_valset_string(report_data):
     """
     Creates the LaTeX \ValSet string from a dictionary of data
@@ -53,16 +103,20 @@ def generate_valset_string(report_data):
 
     for key, value in report_data.items():
         
-        # 1. Handle NaN (empty) values first
-        if pd.isna(value):
+        # --- ROBUST EMPTY CHECK ---
+        # Check if value is NaN OR an empty string (after stripping whitespace)
+        is_val_empty = pd.isna(value) or (str(value).strip() == "")
+        
+        # 1. Handle Empty Values
+        if is_val_empty:
             if key in config.TEXT_FIELDS:
                 str_value = ''  # Empty string for text/info fields
             else:
                 str_value = '0' # '0' for all other (lab result) fields
         
-        # 2. Handle non-NaN (existing) values
+        # 2. Handle Existing Values
         else:
-            # --- UPDATED LOGIC: Check for date formatting ---
+            # --- Check for date formatting ---
             if key in config.DATE_FIELDS and isinstance(value, (datetime, pd.Timestamp)):
                 # Format as MM/DD/YYYY
                 str_value = value.strftime('%m/%d/%Y')
@@ -76,7 +130,7 @@ def generate_valset_string(report_data):
             for char, escaped_char in LATEX_SPECIAL_CHARS:
                 str_value = str_value.replace(char, escaped_char)
         else:
-            # --- NEW FIX: Handle non-numeric lab results ---
+            # --- Handle non-numeric lab results ---
             # This is a lab result. Only sanitize if it's not a pure number.
             try:
                 # Try to convert to float. If it works, it's a number.
@@ -95,9 +149,6 @@ def generate_valset_string(report_data):
 def compile_single_report(report_data, template_path, base_output_folder, panel_name, result_sheet_name):
     """
     Generates and compiles a single LaTeX report.
-    
-    NEW: Saves to a subfolder (base_output_folder / result_sheet_name)
-    NEW: Uses the new filename format (TestID_PanelName_PatientName_Report.pdf)
     """
     
     # --- 1. Create New Filename ---
@@ -111,6 +162,11 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
     base_filename = f"{test_id}_{panel}_{patient_name}_Report"
 
     print(f"--- Processing: {patient_name} (Test ID: {test_id}) ---")
+    
+    # --- Run Integrity Checks Here ---
+    # This will print warnings directly below the "Processing..." line
+    _validate_record_integrity(report_data)
+    # --------------------------------------
 
     # --- 2. Create New Output Subfolder ---
     # We organize by the Result Sheet name (e.g., "WH", "UTI")
