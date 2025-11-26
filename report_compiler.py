@@ -39,10 +39,17 @@ def generate_valset_string(report_data):
     """
     definitions = []
     
-    # --- NEW LOGIC: Overwrite ReportDate with today's date ---
-    # This ensures the report is always dated as "today".
-    report_data['ReportDate'] = datetime.now()
-    # --- End of new logic ---
+    # --- UPDATED LOGIC: Conditional ReportDate ---
+    # 1. Get the current value of ReportDate (if it exists)
+    current_date_val = report_data.get('ReportDate')
+
+    # 2. Check if it is "empty" (NaN, None, or empty string)
+    is_empty = pd.isna(current_date_val) or (isinstance(current_date_val, str) and not current_date_val.strip())
+
+    # 3. If empty, use today's date. Otherwise, keep the existing value.
+    if is_empty:
+        report_data['ReportDate'] = datetime.now()
+    # --- End of updated logic ---
 
     for key, value in report_data.items():
         
@@ -110,7 +117,7 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
     panel_output_folder = os.path.join(base_output_folder, result_sheet_name)
     if not os.path.exists(panel_output_folder):
         os.makedirs(panel_output_folder)
-        print(f"  > Created subfolder: {panel_output_folder}")
+        # print(f"  > Created subfolder: {panel_output_folder}")
 
     # 3. Prepare LaTeX content
     valset_string = generate_valset_string(report_data)
