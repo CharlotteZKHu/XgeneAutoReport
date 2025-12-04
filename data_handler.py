@@ -28,7 +28,7 @@ def load_demographics(demographics_path):
     try:
         df = pd.read_excel(demographics_path)
 
-        # --- NEW: Define the column mapping ---
+        # Define the column mapping
         column_rename_map = {
             'First Name': 'PatientFirstName',
             'Last Name': 'PatientLastName',
@@ -40,12 +40,10 @@ def load_demographics(demographics_path):
             'Received Date': 'DateReceived',
             'XG ID': 'TestID',
             'Sample Type': 'SampleType'
-            # 'Barcode' and 'Panel' are kept as-is
         }
 
         # Rename the columns
         df.rename(columns=column_rename_map, inplace=True)
-        # --- END of new renaming logic ---
 
         return df
     except FileNotFoundError:
@@ -77,8 +75,7 @@ def load_all_results_sheets(results_path, crosswalk_df):
     """
     Loads all lab result sheets from the Excel file into a dictionary of DataFrames.
     It skips the Crosswalk sheet and handles the new complex header format.
-    
-    CRITICAL CHANGE: It now only loads sheets listed in the crosswalk.
+    It now only loads sheets listed in the crosswalk.
     """
     print(f"--- Loading All Result Sheets from {results_path} ---")
     try:
@@ -104,8 +101,8 @@ def load_all_results_sheets(results_path, crosswalk_df):
             
             # 1. Get Pathogen Names (from Row 2, Column D onwards)
             # .iloc[1] = Row 2. [3:] = Column D onwards.
-            # .fillna(method='ffill') will handle merged cells, just in case.
-            pathogen_headers = raw_df.iloc[1, 3:].fillna(method='ffill').tolist()
+            # --- UPDATED: Use .ffill() instead of .fillna(method='ffill') ---
+            pathogen_headers = raw_df.iloc[1, 3:].ffill().tolist()
             
             # 2. Get the 'Barcode' and 'Panel' headers (from Row 3)
             # .iloc[2] = Row 3. [1] = Column B, [2] = Column C
@@ -117,7 +114,7 @@ def load_all_results_sheets(results_path, crosswalk_df):
             clean_pathogen_headers = [h for h in pathogen_headers if pd.notna(h) and h != '']
             final_column_names = [barcode_header, panel_header] + clean_pathogen_headers
             
-            # --- NEW FIX: Deduplicate column names ---
+            # Deduplicate column names
             final_column_names_unique = _deduplicate_columns(final_column_names)
             
             # 4. Get the actual data (from Row 4 onwards)
@@ -140,7 +137,7 @@ def load_all_results_sheets(results_path, crosswalk_df):
             results_sheets[sheet_name] = data_subset
 
         if not results_sheets:
-            print(f"WARNING: No result sheets found in {results_path} (besides Crosswalk).", file=sys.stderr)
+            print(f"WARNING: No valid result sheets found in {results_path} that matched the Crosswalk.", file=sys.stderr)
             
         return results_sheets
         
@@ -155,9 +152,11 @@ def load_all_results_sheets(results_path, crosswalk_df):
 def validate_data(df_row, row_index):
     """
     Performs validation checks on a single merged row (as a DataFrame).
+    NOTE: This is largely superseded by report_compiler._validate_record_integrity
+    but kept here for potential future use or debugging.
     """
     # 1. Define columns that should contain dates
-    # --- CHANGE: Removed 'ReportDate' as it will be overwritten ---
+    # Removed 'ReportDate' as it will be overwritten
     date_columns = ['PatientDOB', 'DateCollected', 'DateReceived']
     today = datetime.now()
     

@@ -233,8 +233,7 @@ class EnterpriseReportApp:
         
         icon = "📂" if is_dir else "📄"
         tk.Button(row, text=icon, command=cmd, bg=self.c["main_bg"], fg=self.c["text_dark"], 
-                #   relief="flat", padx=12, pady=3, cursor="hand2").pack(side=tk.LEFT)
-                   padx=12, pady=3, cursor="hand2").pack(side=tk.LEFT)
+                  relief="flat", padx=12, pady=3, cursor="hand2").pack(side=tk.LEFT)
 
     # --- HANDLERS ---
     def browse_demographics(self):
