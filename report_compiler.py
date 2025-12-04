@@ -59,7 +59,8 @@ def _validate_record_integrity(report_data):
                 
                 if date_val > today:
                      # Added red icon and color code
-                     warnings.append(f"  > {RED}❗ WARNING{RESET}: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
+                    #  warnings.append(f"  > {RED}❗  WARNING{RESET}: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
+                     warnings.append(f"  > ❗  WARNING: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
             except Exception:
                 # If date parsing fails, we ignore it here (it might just be empty or weird text)
                 pass
@@ -75,7 +76,8 @@ def _validate_record_integrity(report_data):
         # This ensures we catch cells that are just spaces or empty text
         if pd.isna(val) or str(val).strip() == '':
             # Added red icon and color code
-            warnings.append(f"  > {RED}❗ WARNING{RESET}: Missing value for variable '{field}'")
+            # warnings.append(f"  > {RED}❗ WARNING{RESET}: Missing value for variable '{field}'")
+            warnings.append(f"  > ❗ WARNING: Missing value for variable '{field}'")
     
     # Print all warnings found
     if warnings:
