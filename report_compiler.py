@@ -2,14 +2,15 @@ import subprocess
 import os
 import pandas as pd
 import sys
-import re # Import regular expressions for sanitizing
-import config  # Import the configuration file
-from datetime import datetime # Import datetime for type checking
+import re 
+import config 
+from datetime import datetime
 
+# --- CONFIGURATION ---
 # Use a list of tuples to GUARANTEE replacement order.
 # Backslash MUST be escaped first to solve the \textbackslash{} bug.
 LATEX_SPECIAL_CHARS = [
-    ('\\', r'\textbackslash{}'), # Must be first!
+    ('\\', r'\textbackslash{}'), 
     ('&', r'\&'),
     ('%', r'\%'),
     ('$', r'\$'),
@@ -22,7 +23,10 @@ LATEX_SPECIAL_CHARS = [
 ]
 
 def _sanitize_for_filename(text_string):
-    """Removes spaces, slashes, and other risky characters for a filename."""
+    """
+    Removes spaces, slashes, and other risky characters for a filename.
+    Used to generate safe PDF file names.
+    """
     if not isinstance(text_string, str):
         text_string = str(text_string)
     
@@ -35,17 +39,13 @@ def _sanitize_for_filename(text_string):
 def _validate_record_integrity(report_data):
     """
     Checks for data issues and prints warnings to the console.
-    1. Checks for dates in the future.
-    2. Checks for missing values in required text fields.
+    The GUI will detect the 'WARNING' keyword and color it red.
     """
     warnings = []
     today = datetime.now()
     
-    # ANSI Color Codes for the terminal
-    RED = '\033[91m'
-    RESET = '\033[0m'
-    
     # 1. Check Dates (Future Check)
+    # We loop through all known date fields to ensure they aren't in the future.
     for field in config.DATE_FIELDS:
         val = report_data.get(field)
         # Check if value exists and is not empty string
@@ -58,14 +58,14 @@ def _validate_record_integrity(report_data):
                     date_val = pd.to_datetime(val)
                 
                 if date_val > today:
-                     # Added red icon and color code
-                    #  warnings.append(f"  > {RED}❗  WARNING{RESET}: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
-                     warnings.append(f"  > ❗  WARNING: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
+                     # Added emoji back
+                     warnings.append(f"  > ❗ WARNING: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
             except Exception:
                 # If date parsing fails, we ignore it here (it might just be empty or weird text)
                 pass
 
     # 2. Check Missing Values (Required Text Fields)
+    # We assume all text fields defined in config are mandatory (except ReportDate).
     for field in config.TEXT_FIELDS:
         # Skip ReportDate because we auto-fill it later if it's missing
         if field == 'ReportDate': 
@@ -73,13 +73,11 @@ def _validate_record_integrity(report_data):
         
         val = report_data.get(field)
         # Check for NaN, None, or empty string (after stripping whitespace)
-        # This ensures we catch cells that are just spaces or empty text
         if pd.isna(val) or str(val).strip() == '':
-            # Added red icon and color code
-            # warnings.append(f"  > {RED}❗ WARNING{RESET}: Missing value for variable '{field}'")
+            # Added emoji back
             warnings.append(f"  > ❗ WARNING: Missing value for variable '{field}'")
     
-    # Print all warnings found
+    # Print all warnings found so the user can see them
     if warnings:
         for w in warnings:
             print(w)
@@ -91,21 +89,17 @@ def generate_valset_string(report_data):
     """
     definitions = []
     
-    # --- UPDATED LOGIC: Conditional ReportDate ---
-    # 1. Get the current value of ReportDate (if it exists)
+    # --- LOGIC: Conditional ReportDate ---
+    # If the ReportDate is missing in the Excel file, default to Today.
     current_date_val = report_data.get('ReportDate')
-
-    # 2. Check if it is "empty" (NaN, None, or empty string)
     is_empty = pd.isna(current_date_val) or (isinstance(current_date_val, str) and not current_date_val.strip())
 
-    # 3. If empty, use today's date. Otherwise, keep the existing value.
     if is_empty:
         report_data['ReportDate'] = datetime.now()
-    # --- End of updated logic ---
 
     for key, value in report_data.items():
         
-        # --- ROBUST EMPTY CHECK ---
+        # --- LOGIC: Robust Empty Check ---
         # Check if value is NaN OR an empty string (after stripping whitespace)
         is_val_empty = pd.isna(value) or (str(value).strip() == "")
         
@@ -114,7 +108,7 @@ def generate_valset_string(report_data):
             if key in config.TEXT_FIELDS:
                 str_value = ''  # Empty string for text/info fields
             else:
-                str_value = '0' # '0' for all other (lab result) fields
+                str_value = '0' # '0' for all other (lab result) fields (prevents LaTeX crash)
         
         # 2. Handle Existing Values
         else:
@@ -140,7 +134,7 @@ def generate_valset_string(report_data):
                 # It's a number, do not sanitize.
             except ValueError:
                 # It's not a number (e.g., 'Detected', '10^5', 'Pending')
-                # We MUST sanitize it.
+                # We MUST sanitize it so chars like '^' don't break LaTeX.
                 for char, escaped_char in LATEX_SPECIAL_CHARS:
                     str_value = str_value.replace(char, escaped_char)
 
@@ -168,14 +162,12 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
     # --- Run Integrity Checks Here ---
     # This will print warnings directly below the "Processing..." line
     _validate_record_integrity(report_data)
-    # --------------------------------------
 
     # --- 2. Create New Output Subfolder ---
     # We organize by the Result Sheet name (e.g., "WH", "UTI")
     panel_output_folder = os.path.join(base_output_folder, result_sheet_name)
     if not os.path.exists(panel_output_folder):
         os.makedirs(panel_output_folder)
-        # print(f"  > Created subfolder: {panel_output_folder}")
 
     # 3. Prepare LaTeX content
     valset_string = generate_valset_string(report_data)
@@ -190,9 +182,16 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
         f.write(final_tex_content)
     print(f"  > Generated .tex file: {os.path.basename(output_tex_path)}")
 
+    # --- WINDOWS CONSOLE SUPPRESSION ---
+    # This ensures pdflatex doesn't pop up black windows on Windows OS
+    startupinfo = None
+    if os.name == 'nt':
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    # -----------------------------------
+
     # 5. Compile the PDF using pdflatex
     for i in range(2):
-        # --- UPDATED: Use the new folder and filename ---
         cmd = [
             "pdflatex", 
             "-interaction=nonstopmode", 
@@ -200,12 +199,14 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
             f"-output-directory={panel_output_folder}", # Tell pdflatex where to put files
             output_tex_path
         ]
-        process = subprocess.run(cmd, capture_output=True, text=True)
+        # Pass startupinfo to hide the window
+        process = subprocess.run(cmd, capture_output=True, text=True, startupinfo=startupinfo)
         
         if process.returncode != 0:
             print(f"  > ERROR: LaTeX compilation failed on run {i+1}.", file=sys.stderr)
             print(f"  > See log file for details: {os.path.join(panel_output_folder, f'{base_filename}.log')}", file=sys.stderr)
             return False
 
-    print(f"  > ✅ Successfully compiled PDF!")
+    # Added emoji back
+    print(f"  > ✅ SUCCESS: PDF compiled") 
     return True

@@ -55,6 +55,16 @@ class EnterpriseReportApp:
         self.root.geometry("1100x780")
         self.root.minsize(950, 650)
         
+        # --- APP ICON (Window Title Bar & Taskbar) ---
+        try:
+            # Using x-gene_icon2.png as requested
+            icon_path = os.path.join(config.ASSETS_DIR, "x-gene_icon2.png")
+            if os.path.exists(icon_path):
+                self.app_icon = tk.PhotoImage(file=icon_path)
+                self.root.iconphoto(False, self.app_icon)
+        except Exception as e:
+            print(f"Warning: Could not load app icon: {e}")
+
         # --- BIOMEDICAL THEME PALETTE ---
         self.c = {
             "sidebar_bg":   "#263238",  # Dark Slate Blue (Professional, Stable)
@@ -69,7 +79,7 @@ class EnterpriseReportApp:
             "warning":      "#D32F2F",  # Alert Red
             "error":        "#B71C1C",  # Deep Red
             "input_bg":     "#F7F9F9",  # Very light input field
-            "status_bar":   "#263238",  # Matches Sidebar for seamless footer
+            "status_bar":   "#263238",  # Matches Sidebar
             "status_fg":    "#ECEFF1"   # Light text for dark footer
         }
         
@@ -87,18 +97,16 @@ class EnterpriseReportApp:
         self.output_path = tk.StringVar()
 
         # --- LAYOUT CONSTRUCTION ---
-        # 1. Sidebar (Left)
         self.sidebar = tk.Frame(root, bg=self.c["sidebar_bg"], width=280)
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
         self.sidebar.pack_propagate(False)
 
-        # 2. Main Content (Right)
         self.right_panel = tk.Frame(root, bg=self.c["main_bg"])
         self.right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
         self._build_sidebar()
         self._build_main_content()
-        self._build_status_bar() # Dark footer
+        self._build_status_bar()
         
         # Redirect stdout/stderr
         self.redirector = SmartRedirector(self.log_widget)
@@ -106,12 +114,12 @@ class EnterpriseReportApp:
         sys.stderr = self.redirector
 
     def _build_sidebar(self):
-        # Brand Area
         brand_frame = tk.Frame(self.sidebar, bg=self.c["sidebar_bg"], pady=40)
         brand_frame.pack(fill=tk.X)
         
+        # Updated Icon Name: x-gene_icon2.png
         try:
-            icon_path = os.path.join(config.ASSETS_DIR, "x-gene_icon.png")
+            icon_path = os.path.join(config.ASSETS_DIR, "x-gene_icon2.png")
             if os.path.exists(icon_path):
                 self.icon_img = tk.PhotoImage(file=icon_path)
                 self.icon_img = self.icon_img.subsample(2, 2) 
@@ -124,16 +132,13 @@ class EnterpriseReportApp:
         tk.Label(brand_frame, text="LABORATORY SYSTEMS", font=(self.f_header.cget("family"), 9, "bold"), 
                  bg=self.c["sidebar_bg"], fg="#90A4AE").pack()
 
-        # Separator
         tk.Frame(self.sidebar, bg="#37474F", height=1).pack(fill=tk.X, padx=20, pady=20)
 
-        # Menu Items (Visual)
+        # Only "Report Generator" remains
         self._sidebar_item("  Report Generator", True)
-        self._sidebar_item("  Batch History", False)
-        self._sidebar_item("  System Config", False)
+        # Removed "Batch History" & "System Config"
         
-        # Footer
-        tk.Label(self.sidebar, text="v2.7.1 | Enterprise", bg=self.c["sidebar_bg"], fg="#546E7A", font=("Arial", 8)).pack(side=tk.BOTTOM, pady=20)
+        tk.Label(self.sidebar, text="v2.7.3 | Enterprise", bg=self.c["sidebar_bg"], fg="#546E7A", font=("Arial", 8)).pack(side=tk.BOTTOM, pady=20)
 
     def _sidebar_item(self, text, active=False):
         bg = self.c["sidebar_bg"]
@@ -148,22 +153,18 @@ class EnterpriseReportApp:
         btn = tk.Label(self.sidebar, text=text, font=font_style, bg=bg, fg=fg, anchor="w", padx=25, pady=12, cursor="hand2")
         btn.pack(fill=tk.X)
         if active:
-            # Teal accent bar
             tk.Frame(btn, bg=self.c["accent"], width=5).pack(side=tk.LEFT, fill=tk.Y)
 
     def _build_main_content(self):
-        # Header
         header = tk.Frame(self.right_panel, bg="#FFFFFF", height=70, padx=40)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
         
         tk.Label(header, text="Report Generation", font=self.f_header, bg="#FFFFFF", fg=self.c["text_dark"]).pack(side=tk.LEFT, fill=tk.Y)
 
-        # Scrollable Content Area
         self.pad = tk.Frame(self.right_panel, bg=self.c["main_bg"], padx=40, pady=30)
         self.pad.pack(fill=tk.BOTH, expand=True)
 
-        # --- CARD 1: INPUTS ---
         input_card = self._create_card(self.pad, "Batch Configuration")
         input_card.pack(fill=tk.X, pady=(0, 20))
         
@@ -171,7 +172,6 @@ class EnterpriseReportApp:
         self._make_row(input_card, "Lab Results (Crosswalk)", self.results_path, self.browse_results)
         self._make_row(input_card, "Archive Location (Opt)", self.output_path, self.browse_output, is_dir=True)
 
-        # Action Button Area
         btn_frame = tk.Frame(input_card, bg=self.c["card_bg"], pady=10)
         btn_frame.pack(fill=tk.X)
         
@@ -182,7 +182,6 @@ class EnterpriseReportApp:
                                  cursor="hand2", command=self.start_generation_thread)
         self.run_btn.pack(side=tk.RIGHT)
 
-        # --- CARD 2: CONSOLE ---
         log_card = self._create_card(self.pad, "System Execution Logs")
         log_card.pack(fill=tk.BOTH, expand=True)
         
@@ -190,7 +189,6 @@ class EnterpriseReportApp:
                                                     bd=0, bg="#FAFAFA", padx=15, pady=15)
         self.log_widget.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
         
-        # Smart Tags for Coloring
         self.log_widget.tag_config("normal", foreground="#455A64")
         self.log_widget.tag_config("info", foreground=self.c["accent"], font=(self.f_mono.cget("family"), 9, "bold"))
         self.log_widget.tag_config("success", foreground=self.c["success"], font=(self.f_mono.cget("family"), 9, "bold"))
@@ -198,17 +196,16 @@ class EnterpriseReportApp:
         self.log_widget.tag_config("error", foreground=self.c["error"], font=(self.f_mono.cget("family"), 9, "bold"))
 
     def _build_status_bar(self):
-        """Creates a sleek, dark footer."""
         status_frame = tk.Frame(self.right_panel, bg=self.c["status_bar"], height=35, padx=20)
         status_frame.pack(side=tk.BOTTOM, fill=tk.X)
         status_frame.pack_propagate(False)
         
-        # Status Label (Left)
-        self.status_lbl = tk.Label(status_frame, text="System Ready", font=("Segoe UI", 9), 
+        tk.Frame(status_frame, bg="#E0E0E0", height=1).pack(side=tk.TOP, fill=tk.X)
+        
+        self.status_lbl = tk.Label(status_frame, text="System Ready", font=("Segoe UI", 9, "bold"), 
                                    bg=self.c["status_bar"], fg=self.c["status_fg"])
         self.status_lbl.pack(side=tk.LEFT, fill=tk.Y)
         
-        # Info Label (Right)
         tk.Label(status_frame, text="X-Gene LIS Connected", font=("Segoe UI", 9), 
                  bg=self.c["status_bar"], fg="#90A4AE").pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -235,7 +232,6 @@ class EnterpriseReportApp:
         tk.Button(row, text=icon, command=cmd, bg=self.c["main_bg"], fg=self.c["text_dark"], 
                   relief="flat", padx=12, pady=3, cursor="hand2").pack(side=tk.LEFT)
 
-    # --- HANDLERS ---
     def browse_demographics(self):
         f = filedialog.askopenfilename(filetypes=[("Excel Files", "*.xlsx")])
         if f: self.demographics_path.set(f)
@@ -277,6 +273,16 @@ class EnterpriseReportApp:
                 return
 
             print("--- Starting Batch Analysis ---")
+            
+            if os.path.exists(config.OUTPUT_DIR):
+                try:
+                    shutil.rmtree(config.OUTPUT_DIR)
+                    os.makedirs(config.OUTPUT_DIR)
+                    print(f"INFO: Output directory cleaned: {config.OUTPUT_DIR}")
+                except Exception as e:
+                    print(f"WARNING: Could not clean output directory: {e}")
+            else:
+                os.makedirs(config.OUTPUT_DIR)
             
             demographics_df = data_handler.load_demographics(d_path)
             crosswalk_df = data_handler.load_crosswalk(r_path)
