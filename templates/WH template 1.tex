@@ -339,7 +339,7 @@ Resistance to metronidazole and tetracyclines has been reported. }
 \DescSet{Candida glabrata}{C. glabrata is intrinsically less susceptible to fluconazole, Resistance to echinocandins has also been reported. Infections caused by C. glabrata may require higher doses of fluconazole or the use of other antifungal agents like amphotericin B. }
 
 % ---------  Vaginal flora -----------
-\DescSet{Lactobacillus}{Low level Lactobacillus will contribute to recurrent vaginosis. }
+\DescSet{Lactobacillus}{Low level Lactobacillus will contribut to recurrent vaginosis. }
 
 % --- DOCUMENT START ---
 \begin{document}
@@ -834,17 +834,88 @@ Resistance to metronidazole and tetracyclines has been reported. }
     }%
 }
 
+% --- "All Not Tested" check macros ---
+% These return 1 if ALL variables in the category are -1 (Not tested)
+
+\newcommand{\checkSTIsAllNotTested}{%
+    \fpeval{
+        ((\ValGet{Neisseria gonorrhoeae}) == -1) &&
+        ((\ValGet{Chlamydia trachomatis}) == -1) &&
+        ((\ValGet{Trichomonas vaginalis}) == -1) &&
+        ((\ValGet{Mycoplasma hominis}) == -1) &&
+        ((\ValGet{Mycoplasma genitalium}) == -1) &&
+        ((\ValGet{Haemophilus ducreyi}) == -1) &&
+        ((\ValGet{Treponema pallidum}) == -1) &&
+        ((\ValGet{HSV-1}) == -1) &&
+        ((\ValGet{HSV-2}) == -1)
+        ? 1 : 0
+    }%
+}
+
+\newcommand{\checkBVAllNotTested}{%
+    \fpeval{
+        ((\ValGet{Atopobium vaginae}) == -1) &&
+        ((\ValGet{BVAB2}) == -1) &&
+        ((\ValGet{Enterococcus faecalis}) == -1) &&
+        ((\ValGet{Gardnerella vaginalis}) == -1) &&
+        ((\ValGet{Megasphaera 1}) == -1) &&
+        ((\ValGet{Megasphaera 2}) == -1) &&
+        ((\ValGet{Mobiluncus mulieris}) == -1) &&
+        ((\ValGet{Prevotella bivia}) == -1) &&
+        ((\ValGet{Strep B/ S. agalactiae}) == -1) &&
+        ((\ValGet{Ureaplasma urealyticum}) == -1)
+        ? 1 : 0
+    }%
+}
+
+\newcommand{\checkAerobicVaginitisAllNotTested}{%
+    \fpeval{
+        ((\ValGet{Enterococcus faecalis}) == -1) &&
+        ((\ValGet{Strep B/ S. agalactiae}) == -1)
+        ? 1 : 0
+    }%
+}
+
+\newcommand{\checkGroupBStrepAllNotTested}{%
+    \fpeval{
+        ((\ValGet{Strep B/ S. agalactiae}) == -1)
+        ? 1 : 0
+    }%
+}
+
+\newcommand{\checkCandidiasisAllNotTested}{%
+    \fpeval{
+        ((\ValGet{Candida albicans}) == -1) &&
+        ((\ValGet{Candida auris}) == -1) &&
+        ((\ValGet{Candida tropicalis}) == -1) &&
+        ((\ValGet{Candida krusei}) == -1) &&
+        ((\ValGet{Candida glabrata}) == -1)
+        ? 1 : 0
+    }%
+}
+
+\newcommand{\checkVaginalFloraAllNotTested}{%
+    \fpeval{
+        ((\ValGet{Lactobacillus}) == -1)
+        ? 1 : 0
+    }%
+}
+
 \newcommand{\showStatusOrNotDetectedWithSpace}[3][2em]{%
     \hspace{#1}%
-    \ifdim\Val{#2}pt>0pt%
-        \ifdim\Val{#2}pt<35pt%
-            #3%
+    \ifthenelse{\equal{\Val{#2}}{-1}}{%
+        Not~Tested%
+    }{%
+        \ifdim\Val{#2}pt>0pt%
+            \ifdim\Val{#2}pt<35pt%
+                #3%
+            \else%
+                Not~Detected%
+            \fi%
         \else%
             Not~Detected%
         \fi%
-    \else%
-        Not~Detected%
-    \fi%
+    }%
 }
 
 % =================================
@@ -1024,27 +1095,27 @@ CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
 
 STIs & 
 % \ifthenelse{\equal{\checkSTIs}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} &
-\ifthenelse{\equal{\checkSTIs}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\ifthenelse{\equal{\checkSTIs}{1}}{\redPlusBox{} Detected}{\ifthenelse{\equal{\checkSTIsAllNotTested}{1}}{\hspace{2em}Not Tested}{\hspace{2em}Not Detected}} & 
 \\
 % \hline
 BV associate pathogens & 
 % \ifthenelse{\equal{\checkBV}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
-\ifthenelse{\equal{\checkBV}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} &
+\ifthenelse{\equal{\checkBV}{1}}{\redPlusBox{} Detected}{\ifthenelse{\equal{\checkBVAllNotTested}{1}}{\hspace{2em}Not Tested}{\hspace{2em}Not Detected}} &
 \getBVStatus \\
 % \hline
 Aerobic vaginitis associate pathogens & 
 % \ifthenelse{\equal{\checkAerobicVaginitis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
-\ifthenelse{\equal{\checkAerobicVaginitis}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\ifthenelse{\equal{\checkAerobicVaginitis}{1}}{\redPlusBox{} Detected}{\ifthenelse{\equal{\checkAerobicVaginitisAllNotTested}{1}}{\hspace{2em}Not Tested}{\hspace{2em}Not Detected}} & 
 \\
 % \hline
 Group B strep & 
 % \ifthenelse{\equal{\checkGroupBStrep}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
-\ifthenelse{\equal{\checkGroupBStrep}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\ifthenelse{\equal{\checkGroupBStrep}{1}}{\redPlusBox{} Detected}{\ifthenelse{\equal{\checkGroupBStrepAllNotTested}{1}}{\hspace{2em}Not Tested}{\hspace{2em}Not Detected}} & 
 \\
 % \hline
 Candidiasis & 
 % \ifthenelse{\equal{\checkCandidiasis}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
-\ifthenelse{\equal{\checkCandidiasis}{1}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
+\ifthenelse{\equal{\checkCandidiasis}{1}}{\redPlusBox{} Detected}{\ifthenelse{\equal{\checkCandidiasisAllNotTested}{1}}{\hspace{2em}Not Tested}{\hspace{2em}Not Detected}} & 
 \\
 % \hline
 % Vaginal Flora & 
@@ -1154,8 +1225,9 @@ Vaginal Flora & \showStatusOrNotDetectedWithSpace{Lactobacillus}{\getLactobacill
 % \begin{tabularx}{\textwidth}{>{\itshape}p{6cm} l 
 % \begin{tabularx}{\textwidth}{>{\itshape}p{4.2cm} p{3.7cm} c >{\itshape}c >{\itshape\scriptsize}X}
 % \begin{longtable}{>{\itshape}p{3.5cm} p{2.4cm} c >{\itshape}c >{\itshape\scriptsize}p{9.7cm}}
+% \begin{longtable}{>{\itshape}p{3.5cm} p{2.8cm} c >{\centering\arraybackslash\itshape}m{2cm} >{\itshape\scriptsize}p{8.5cm}}
 \begin{longtable}{>{\itshape}p{3.5cm} p{2.8cm} c >{\centering\arraybackslash\itshape}m{2cm} >{\itshape}p{8.5cm}}
-
+% \footnotesize
 % \hline
 \arrayrulecolor{lightbar}\specialrule{3pt}{2pt}{2pt}\arrayrulecolor{black}
 
@@ -1167,7 +1239,7 @@ Vaginal Flora & \showStatusOrNotDetectedWithSpace{Lactobacillus}{\getLactobacill
 % \normalfont\textbf{Description} \\
 
 \normalfont\textbf{Microorganisms} & \normalfont\textbf{~~~~~Results} & 
-\multicolumn{3}{l}{\normalfont\textbf{Pathogen level} \footnotesize{ 1 (low) $\rightarrow$ 25 (high)} \hspace{5em} \small\textbf{Reference}} \\
+\multicolumn{3}{l}{\normalfont\textbf{Pathogen level} \footnotesize{ 1 (low) $\rightarrow$ 25 (high)} \hspace{5em} \small\textbf{Reference}}\\
 
 
 
