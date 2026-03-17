@@ -40,13 +40,18 @@ def _validate_record_integrity(report_data):
     """
     Checks for data issues and prints warnings to the console.
     The GUI will detect the 'WARNING' keyword and color it red.
+    
+    Date Validation Logic:
+    - Historical dates (e.g., PatientDOB): Only warns if in the future
+    - Current dates (e.g., DateCollected, DateReceived, ReportDate): Warns if in the future OR not today
     """
     warnings = []
     today = datetime.now()
+    today_date = today.date()  # Get just the date part for comparison
     
-    # 1. Check Dates (Future Check)
-    # We loop through all known date fields to ensure they aren't in the future.
-    for field in config.DATE_FIELDS:
+    # 1. Check Dates - Advanced Validation
+    # We loop through all known date fields with different rules for different field types
+    for field in config.ALL_DATE_FIELDS:
         val = report_data.get(field)
         # Check if value exists and is not empty string
         if pd.notna(val) and str(val).strip() != '':
@@ -57,9 +62,19 @@ def _validate_record_integrity(report_data):
                 else:
                     date_val = pd.to_datetime(val)
                 
-                if date_val > today:
-                     # Added emoji back
-                     warnings.append(f"  > ❗ WARNING: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
+                # Convert to date for comparison (ignore time component)
+                date_only = date_val.date()
+                
+                # Check 1: Future Date (applies to ALL date fields)
+                if date_only > today_date:
+                    warnings.append(f"  > ❗ WARNING: Future date detected in '{field}': {date_val.strftime('%m/%d/%Y')}")
+                
+                # Check 2: Old Date / Not Today (only for CURRENT_DATE_FIELDS)
+                # Skip this check for historical fields like PatientDOB
+                elif field in config.CURRENT_DATE_FIELDS and date_only < today_date:
+                    days_ago = (today_date - date_only).days
+                    warnings.append(f"  > ❗ WARNING: Old date detected in '{field}': {date_val.strftime('%m/%d/%Y')} ({days_ago} day{'s' if days_ago > 1 else ''} ago)")
+                    
             except Exception:
                 # If date parsing fails, we ignore it here (it might just be empty or weird text)
                 pass
@@ -74,7 +89,6 @@ def _validate_record_integrity(report_data):
         val = report_data.get(field)
         # Check for NaN, None, or empty string (after stripping whitespace)
         if pd.isna(val) or str(val).strip() == '':
-            # Added emoji back
             warnings.append(f"  > ❗ WARNING: Missing value for variable '{field}'")
     
     # Print all warnings found so the user can see them

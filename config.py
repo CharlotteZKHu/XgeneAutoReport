@@ -34,7 +34,7 @@ TEXT_FIELDS = [
     'DateReceived',
     'ReportDate',
     'Panel',
-    'SampleType' # <-- ADDED
+    'SampleType'
 ]
 
 # --- Date Formatting ---
@@ -44,5 +44,23 @@ DATE_FIELDS = [
     'PatientDOB',
     'DateCollected',
     'DateReceived',
+    'ReportDate'
+]
+
+# --- NEW: Enhanced Date Validation Categories ---
+# All date fields in the system (same as DATE_FIELDS for compatibility)
+ALL_DATE_FIELDS = DATE_FIELDS
+
+# Date fields that SHOULD be in the past (birthdate)
+# These will only be checked for future dates, NOT for being old
+HISTORICAL_DATE_FIELDS = [
+    'PatientDOB'
+]
+
+# Date fields that should ideally be TODAY or very recent
+# These will be checked for BOTH future dates AND old dates (not today)
+CURRENT_DATE_FIELDS = [
+    'DateCollected',
+    'DateReceived', 
     'ReportDate'
 ]
