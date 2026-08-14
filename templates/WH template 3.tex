@@ -287,19 +287,41 @@
 
 % Special description function for Lactobacillus
 % Shows description ONLY when value is in range (25, 35)
+% \newcommand{\DescOfLactobacillusAdvanced}[1]{%
+%     \tl_if_blank:nF {\Val{#1}}{%
+%         \fp_set:Nn \l_tmpd_fp {\Val{#1}}%
+%         \fp_compare:nF { \l_tmpd_fp = -1 }
+%         {%
+%             \fp_compare:nTF { \l_tmpd_fp > 25 }{%
+%                 \fp_compare:nTF { \l_tmpd_fp < 35 }{%
+%                     \prop_get:NnNTF \g_xg_desc_prop_norm { \xg_norm:n {#1} } \l_tmpa_tl
+%                         { \tl_use:N \l_tmpa_tl }{ }%
+%                 }{ }%
+%             }{ }%
+%         }%
+%     }%
+% }
+
 \newcommand{\DescOfLactobacillusAdvanced}[1]{%
-    \tl_if_blank:nF {\Val{#1}}{%
-        \fp_set:Nn \l_tmpd_fp {\Val{#1}}%
-        \fp_compare:nF { \l_tmpd_fp = -1 }
+    \tl_if_blank:nTF {\Val{#1}}
+        { \LactoNotDetectedText }              % blank -> Not detected
         {%
-            \fp_compare:nTF { \l_tmpd_fp > 25 }{%
-                \fp_compare:nTF { \l_tmpd_fp < 35 }{%
-                    \prop_get:NnNTF \g_xg_desc_prop_norm { \xg_norm:n {#1} } \l_tmpa_tl
-                        { \tl_use:N \l_tmpa_tl }{ }%
-                }{ }%
-            }{ }%
+            \fp_set:Nn \l_tmpd_fp {\Val{#1}}%
+            \fp_compare:nF { \l_tmpd_fp = -1 }  % -1 -> Not tested -> print nothing
+            {%
+                \fp_compare:nTF { \l_tmpd_fp = 0 }
+                    { \LactoNotDetectedText }   % 0 -> Not detected
+                    {%
+                        \fp_compare:nTF { \l_tmpd_fp >= 35 }
+                            { \LactoNotDetectedText }   % >=35 -> Not detected
+                            {%
+                                \fp_compare:nTF { \l_tmpd_fp > 25 }
+                                    { \LactoReducedText }   % (25,35) -> Reduced / Greatly reduced
+                                    { }                     % (0,25] Normal -> nothing
+                            }%
+                    }%
+            }%
         }%
-    }%
 }
 
 \ExplSyntaxOff
@@ -339,7 +361,10 @@ Resistance to metronidazole and tetracyclines has been reported. }
 \DescSet{Candida glabrata}{C. glabrata is intrinsically less susceptible to fluconazole, Resistance to echinocandins has also been reported. Infections caused by C. glabrata may require higher doses of fluconazole or the use of other antifungal agents like amphotericin B. }
 
 % ---------  Vaginal flora -----------
-\DescSet{Lactobacillus}{Low level Lactobacillus will contribut to recurrent vaginosis. }
+\DescSet{Lactobacillus}{Reduced Lactobacillus levels may be associated with vaginal dysbiosis and an increased risk of recurrent bacterial vaginosis.}
+
+\newcommand{\LactoReducedText}{Reduced Lactobacillus levels may be associated with vaginal dysbiosis and an increased risk of recurrent bacterial vaginosis.}
+\newcommand{\LactoNotDetectedText}{Non-detection of Lactobacillus may be associated with vaginal dysbiosis and an increased risk of recurrent bacterial vaginosis.}
 
 % --- DOCUMENT START ---
 \begin{document}
@@ -932,7 +957,7 @@ Resistance to metronidazole and tetracyclines has been reported. }
     \fancyhead[R]{\small \texttt{Date Reported: \Val{ReportDate}}}
     
     % Footer - appears on all pages
-    \fancyfoot[L]{\texttt{\small WH-RP-2508}}
+    \fancyfoot[L]{\texttt{\small WH-RP-2608}}
     \fancyfoot[C]{\texttt{\small X-Gene Diagnostics}}
     \fancyfoot[R]{\texttt{\small Page \thepage\ of \pageref{LastPage}}}
     
@@ -949,7 +974,7 @@ Resistance to metronidazole and tetracyclines has been reported. }
     \fancyhead{}
     
     % Footer - same as main style
-    \fancyfoot[L]{\texttt{\small WH-RP-2508}}
+    \fancyfoot[L]{\texttt{\small WH-RP-2608}}
     \fancyfoot[C]{\texttt{\small X-Gene Diagnostics}}
     \fancyfoot[R]{\texttt{\small Page \thepage\ of \pageref{LastPage}}}
     
