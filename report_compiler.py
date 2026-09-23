@@ -156,7 +156,7 @@ def generate_valset_string(report_data):
         
     return "\n".join(definitions)
 
-def compile_single_report(report_data, template_path, base_output_folder, panel_name, result_sheet_name):
+def compile_single_report(report_data, template_path, base_output_folder, panel_name, result_sheet_name, wh_variant=None):
     """
     Generates and compiles a single LaTeX report.
     """
@@ -187,6 +187,18 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
     valset_string = generate_valset_string(report_data)
     with open(template_path, 'r') as f:
         template_content = f.read()
+    # The legacy WH template names all resolve to WH_template.tex, but each
+    # retains its original optional test rows. Non-WH templates are unchanged.
+    if wh_variant is not None:
+        if wh_variant not in (1, 2, 3, 4):
+            raise ValueError(f"Unsupported WH variant: {wh_variant}")
+        variant_marker = '%% -- WH_VARIANT_INSERT_POINT -- %%'
+        if variant_marker not in template_content:
+            raise ValueError(f"WH variant marker missing in {template_path}")
+        template_content = template_content.replace(
+            variant_marker, f"\\def\\WHVariant{{{wh_variant}}}", 1
+        )
+
     final_tex_content = template_content.replace('%% -- DATA_INSERT_POINT -- %%', valset_string)
 
     # 4. Save the temporary .tex file (in the new subfolder)

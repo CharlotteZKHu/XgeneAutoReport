@@ -64,3 +64,25 @@ CURRENT_DATE_FIELDS = [
     'DateReceived', 
     'ReportDate'
 ]
+
+
+# --- Unified WH template routing ---
+# Keep legacy Crosswalk Result Template names; all four use one .tex file.
+# Whitespace, hyphens, and underscores between words/numbers are accepted.
+import re
+
+
+def resolve_template(template_name):
+    """Return (template_path, WH variant), with None for non-WH templates."""
+    name = str(template_name).strip()
+    if name.lower().endswith('.tex'):
+        name = name[:-4]
+
+    match = re.fullmatch(r'WH[\s_-]*template[\s_-]*([1-4])', name, flags=re.IGNORECASE)
+    if match:
+        return os.path.join(TEMPLATE_DIR, 'WH_template.tex'), int(match.group(1))
+    if re.fullmatch(r'WH[\s_-]*template', name, flags=re.IGNORECASE):
+        return os.path.join(TEMPLATE_DIR, 'WH_template.tex'), 1
+
+    # Non-WH panels continue using the names in their Crosswalk unchanged.
+    return os.path.join(TEMPLATE_DIR, f'{name}.tex'), None

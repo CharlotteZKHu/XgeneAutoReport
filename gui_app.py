@@ -310,7 +310,7 @@ class EnterpriseReportApp:
                     fail += 1
                     continue
 
-                t_path = os.path.join(config.TEMPLATE_DIR, f"{t_name}.tex")
+                t_path, wh_variant = config.resolve_template(t_name)
                 if not os.path.exists(t_path):
                     print(f"Skipping {p_code}: Template '{t_name}' missing.")
                     fail += 1
@@ -336,7 +336,7 @@ class EnterpriseReportApp:
                     merged = pd.merge(r_df, p_df.drop(columns=['Panel']), on='Barcode', how='left')
                     rec = merged.to_dict('records')[0]
                     
-                    if report_compiler.compile_single_report(rec, t_path, config.OUTPUT_DIR, p_panel, s_name):
+                    if report_compiler.compile_single_report(rec, t_path, config.OUTPUT_DIR, p_panel, s_name, wh_variant=wh_variant):
                         success += 1
                     else:
                         fail += 1

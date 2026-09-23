@@ -62,7 +62,7 @@ def main():
             continue
 
         # Construct the full path to the required .tex template
-        template_path = os.path.join(config.TEMPLATE_DIR, f"{template_name}.tex")
+        template_path, wh_variant = config.resolve_template(template_name)
         if not os.path.exists(template_path):
             print(f"  > ERROR: Template file not found: {template_path}. Skipping patient.", file=sys.stderr)
             failure_count += 1
@@ -111,7 +111,8 @@ def main():
                 template_path,
                 config.OUTPUT_DIR,
                 patient_panel,      # e.g., "WHP" or "WIP-CPP+WHP"
-                result_sheet_name   # e.g., "WH" or "UTI"
+                result_sheet_name,  # e.g., "WH" or "UTI"
+                wh_variant=wh_variant
             )
             if success:
                 success_count += 1
