@@ -199,6 +199,19 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
             variant_marker, f"\\def\\WHVariant{{{wh_variant}}}", 1
         )
 
+        # The customer-specific display rule is for WH reports only.
+        # Fail closed if the marker is missing so an unfiltered report cannot
+        # accidentally be generated for this physician and facility.
+        sti_marker = '%% -- WH_STI_VISIBILITY_INSERT_POINT -- %%'
+        if sti_marker not in template_content:
+            raise ValueError(f"WH STI visibility marker missing in {template_path}")
+        hide_stis = config.should_hide_wh_stis(report_data)
+        template_content = template_content.replace(
+            sti_marker, "\\WHShowSTIfalse" if hide_stis else "\\WHShowSTItrue", 1
+        )
+        if hide_stis:
+            print("  > INFO: WH customer-specific display: STI/HSV sections and STI summary hidden.")
+
     final_tex_content = template_content.replace('%% -- DATA_INSERT_POINT -- %%', valset_string)
 
     # 4. Save the temporary .tex file (in the new subfolder)

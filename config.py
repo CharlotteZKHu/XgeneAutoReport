@@ -86,3 +86,27 @@ def resolve_template(template_name):
 
     # Non-WH panels continue using the names in their Crosswalk unchanged.
     return os.path.join(TEMPLATE_DIR, f'{name}.tex'), None
+
+
+# --- WH client-specific presentation rules ---
+# Patient demographics mapping in data_handler.py:
+#   Excel "Physician"  -> PhysicianName
+#   Excel "FACILITIES" -> PhysicianSpecialty
+# Match BOTH fields so other physicians or facilities keep standard WH reports.
+WH_NO_STI_PHYSICIAN = "Dena Geiger"
+WH_NO_STI_FACILITY = "Glacier Womens Health and Wellness"
+
+
+def _normalized_customer_field(value):
+    """Case-insensitive, whitespace-tolerant match without fuzzy name guessing."""
+    return " ".join(str(value).split()).casefold()
+
+
+def should_hide_wh_stis(report_data):
+    """True only for the designated physician AND facility, for WH reports."""
+    return (
+        _normalized_customer_field(report_data.get("PhysicianName", ""))
+        == _normalized_customer_field(WH_NO_STI_PHYSICIAN)
+        and _normalized_customer_field(report_data.get("PhysicianSpecialty", ""))
+        == _normalized_customer_field(WH_NO_STI_FACILITY)
+    )

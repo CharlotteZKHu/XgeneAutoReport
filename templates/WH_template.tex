@@ -13,6 +13,12 @@
 \ifnum\WHVariant>2 \WHExpandedSTItrue\fi
 \ifodd\WHVariant\else \WHExpandedCandidatrue\fi
 
+% Independent display rule: false only for the designated WH customer.
+% Only printed report sections are hidden; raw lab values remain unchanged.
+\newif\ifWHShowSTI
+\WHShowSTItrue
+%% -- WH_STI_VISIBILITY_INSERT_POINT -- %%
+
 % --- PACKAGES ---
 \usepackage[utf8]{inputenc}
 \usepackage{helvet} % Use Helvetica font, similar to Calibri
@@ -1131,10 +1137,12 @@ CLIA \#: 21D2093389\quad Laboratory Director: Laurance Ferreri, Ph.D.}
 % \hline
 \arrayrulecolor{lightbar}\specialrule{3pt}{1pt}{0pt}\arrayrulecolor{black}
 
+\ifWHShowSTI
 STIs & 
 % \ifthenelse{\equal{\checkSTIs}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} &
 \ifthenelse{\equal{\checkSTIs}{1}}{\redPlusBox{} Detected}{\ifthenelse{\equal{\checkSTIsAllNotTested}{1}}{\hspace{2em}Not Tested}{\hspace{2em}Not Detected}} & 
 \\
+\fi
 % \hline
 BV associate pathogens & 
 % \ifthenelse{\equal{\checkBV}{true}}{\redPlusBox{} Detected}{\hspace{2em}Not Detected} & 
@@ -1286,6 +1294,7 @@ Vaginal Flora & \showStatusOrNotDetectedWithSpace{Lactobacillus}{\getLactobacill
 
 % Category title row (bold, full width)
 
+\ifWHShowSTI
 % --------- STIs ---------------
 \rowcolor{gray!10}\multicolumn{5}{l}{\textbf{STIs}} \\
 % Thick gray rule (must be inside the tabular)
@@ -1317,6 +1326,7 @@ Treponema pallidum     & \ResultOf{Treponema pallidum}     & \XAOf{Treponema pal
 \fi
 
 \hline
+\fi % End of STI table section
 
 % --------- Bacteria ---------------
 % \addlinespace[8pt]
@@ -1375,6 +1385,7 @@ Candida glabrata   & \ResultOf{Candida glabrata}   & \XAOf{Candida glabrata}   &
 
 \hline
 
+\ifWHShowSTI
 % ---------  Virus (STI related) -----------
 \rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Virus (STI related)}} \\
 \hline
@@ -1385,6 +1396,7 @@ HSV-1 & \ResultOf{HSV-1} & \XAOf{HSV-1} & \XATagOf{HSV-1} & \paddedbox{\DescOf{H
 HSV-2 & \ResultOf{HSV-2} & \XAOf{HSV-2} & \XATagOf{HSV-2} & \paddedbox{\DescOf{HSV-2}} \\
 
 \hline
+\fi % End of Virus (STI related) table section
 
 % ---------  Vaginal flora -----------
 \rowcolor{gray!10}\multicolumn{5}{l}{\textbf{Vaginal flora}} \\
