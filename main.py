@@ -61,7 +61,7 @@ def main():
             failure_count += 1
             continue
 
-        # Construct the full path to the required .tex template
+        # Resolve legacy WH template names to the unified WH_template.tex.
         template_path, wh_variant = config.resolve_template(template_name)
         if not os.path.exists(template_path):
             print(f"  > ERROR: Template file not found: {template_path}. Skipping patient.", file=sys.stderr)
@@ -112,7 +112,8 @@ def main():
                 config.OUTPUT_DIR,
                 patient_panel,      # e.g., "WHP" or "WIP-CPP+WHP"
                 result_sheet_name,  # e.g., "WH" or "UTI"
-                wh_variant=wh_variant
+                wh_variant=wh_variant,
+                round_subunit_results=True  # CLI default mirrors GUI's default-checked behavior
             )
             if success:
                 success_count += 1

@@ -95,6 +95,9 @@ class EnterpriseReportApp:
         self.demographics_path = tk.StringVar()
         self.results_path = tk.StringVar()
         self.output_path = tk.StringVar()
+        # Default ON: report positive numeric lab results below 1 as 1.
+        # Zero remains zero. Users can disable this per batch.
+        self.round_subunit_results = tk.BooleanVar(value=True)
 
         # --- LAYOUT CONSTRUCTION ---
         self.sidebar = tk.Frame(root, bg=self.c["sidebar_bg"], width=280)
@@ -172,6 +175,25 @@ class EnterpriseReportApp:
         self._make_row(input_card, "Lab Results (Crosswalk)", self.results_path, self.browse_results)
         self._make_row(input_card, "Archive Location (Opt)", self.output_path, self.browse_output, is_dir=True)
 
+        # Report value display option. Default checked as requested.
+        option_row = tk.Frame(input_card, bg=self.c["card_bg"])
+        option_row.pack(fill=tk.X, pady=(10, 4))
+        tk.Label(
+            option_row, text="Result Display", width=22, anchor="w",
+            bg=self.c["card_bg"], fg=self.c["text_dark"], font=self.f_norm
+        ).pack(side=tk.LEFT)
+        self.round_subunit_check = tk.Checkbutton(
+            option_row,
+            text="Round positive results below 1 up to 1 (minimum detected value = 1)",
+            variable=self.round_subunit_results,
+            onvalue=True, offvalue=False,
+            bg=self.c["card_bg"], fg=self.c["text_dark"],
+            activebackground=self.c["card_bg"], activeforeground=self.c["text_dark"],
+            selectcolor=self.c["input_bg"], font=self.f_norm,
+            anchor="w", cursor="hand2"
+        )
+        self.round_subunit_check.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=15)
+
         btn_frame = tk.Frame(input_card, bg=self.c["card_bg"], pady=10)
         btn_frame.pack(fill=tk.X)
         
@@ -245,7 +267,10 @@ class EnterpriseReportApp:
         if d: self.output_path.set(d)
 
     def start_generation_thread(self):
+        # Snapshot the checkbox value before entering the worker thread.
+        self._round_subunit_for_batch = bool(self.round_subunit_results.get())
         self.run_btn.config(state="disabled", bg="#B0BEC5", text="PROCESSING...")
+        self.round_subunit_check.config(state="disabled")
         self.status_lbl.config(text="Processing Request...", fg="#FFFFFF")
         self.log_widget.configure(state="normal")
         self.log_widget.delete(1.0, tk.END)
@@ -254,11 +279,13 @@ class EnterpriseReportApp:
 
     def _finish(self, total, success, fail):
         self.run_btn.config(state="normal", bg=self.c["accent"], text="INITIATE BATCH PROCESSING")
+        self.round_subunit_check.config(state="normal")
         self.status_lbl.config(text="Processing Complete", fg=self.c["status_fg"])
         messagebox.showinfo("Report Summary", f"Batch Complete.\n\nTotal: {total}\nSuccess: {success}\nFailed: {fail}")
 
     def _reset_error(self):
         self.run_btn.config(state="normal", bg=self.c["accent"], text="INITIATE BATCH PROCESSING")
+        self.round_subunit_check.config(state="normal")
         self.status_lbl.config(text="System Error", fg="#EF5350")
 
     def run_process(self):
@@ -273,6 +300,10 @@ class EnterpriseReportApp:
                 return
 
             print("--- Starting Batch Analysis ---")
+            if self._round_subunit_for_batch:
+                print("INFO: Result display rule ON: numeric lab results with 0 < value < 1 will be reported as 1.")
+            else:
+                print("INFO: Result display rule OFF: numeric lab results will be reported at their original values.")
             
             if os.path.exists(config.OUTPUT_DIR):
                 try:
@@ -312,7 +343,7 @@ class EnterpriseReportApp:
 
                 t_path, wh_variant = config.resolve_template(t_name)
                 if not os.path.exists(t_path):
-                    print(f"Skipping {p_code}: Template '{t_name}' missing.")
+                    print(f"Skipping {p_code}: Template '{t_name}' missing (resolved to '{t_path}').")
                     fail += 1
                     continue
 
@@ -336,7 +367,11 @@ class EnterpriseReportApp:
                     merged = pd.merge(r_df, p_df.drop(columns=['Panel']), on='Barcode', how='left')
                     rec = merged.to_dict('records')[0]
                     
-                    if report_compiler.compile_single_report(rec, t_path, config.OUTPUT_DIR, p_panel, s_name, wh_variant=wh_variant):
+                    if report_compiler.compile_single_report(
+                        rec, t_path, config.OUTPUT_DIR, p_panel, s_name,
+                        wh_variant=wh_variant,
+                        round_subunit_results=self._round_subunit_for_batch
+                    ):
                         success += 1
                     else:
                         fail += 1

@@ -96,10 +96,14 @@ def _validate_record_integrity(report_data):
         for w in warnings:
             print(w)
 
-def generate_valset_string(report_data):
+def generate_valset_string(report_data, round_subunit_results=True):
     """
     Creates the LaTeX \ValSet string from a dictionary of data
-    with improved sanitization, date formatting, and NaN handling.
+    with improved sanitization, date formatting, NaN handling, and optional
+    normalization of positive lab results below 1.
+
+    When round_subunit_results is True, only non-text/lab-result values in
+    the open interval (0, 1) are rendered as 1. Zero remains zero.
     """
     definitions = []
     
@@ -131,8 +135,20 @@ def generate_valset_string(report_data):
                 # Format as MM/DD/YYYY
                 str_value = value.strftime('%m/%d/%Y')
             else:
-                # Just convert to string as before
-                str_value = str(value)
+                # Lab-result display rule: when enabled, any positive numeric
+                # result below 1 is reported as 1. Zero and values >= 1 remain
+                # unchanged. Text fields are never modified by this rule.
+                if round_subunit_results and key not in config.TEXT_FIELDS:
+                    try:
+                        numeric_value = float(value)
+                        if 0 < numeric_value < 1:
+                            str_value = '1'
+                        else:
+                            str_value = str(value)
+                    except (ValueError, TypeError):
+                        str_value = str(value)
+                else:
+                    str_value = str(value)
         
         # 3. Apply LaTeX sanitization
         if key in config.TEXT_FIELDS:
@@ -156,7 +172,7 @@ def generate_valset_string(report_data):
         
     return "\n".join(definitions)
 
-def compile_single_report(report_data, template_path, base_output_folder, panel_name, result_sheet_name, wh_variant=None):
+def compile_single_report(report_data, template_path, base_output_folder, panel_name, result_sheet_name, wh_variant=None, round_subunit_results=True):
     """
     Generates and compiles a single LaTeX report.
     """
@@ -184,7 +200,7 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
         os.makedirs(panel_output_folder)
 
     # 3. Prepare LaTeX content
-    valset_string = generate_valset_string(report_data)
+    valset_string = generate_valset_string(report_data, round_subunit_results=round_subunit_results)
     with open(template_path, 'r') as f:
         template_content = f.read()
     # The legacy WH template names all resolve to WH_template.tex, but each
