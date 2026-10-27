@@ -87,6 +87,15 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% -- ROUNDING_CONFIG -- %%
+% Compatibility fallback: the report compiler normally defines and sets
+% \ifRoundSubunitResults above.  Older compilers may leave the marker
+% untouched, so define the switch here only if it does not exist yet.
+% Preserve any explicit TRUE/FALSE value supplied by the GUI/compiler.
+\ifdefined\ifRoundSubunitResults
+\else
+  \expandafter\newif\csname ifRoundSubunitResults\endcsname
+  \RoundSubunitResultstrue
+\fi
 
 % --- LOGIC HELPERS (LaTeX3) ---
 \ExplSyntaxOn

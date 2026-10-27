@@ -200,7 +200,13 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
         os.makedirs(panel_output_folder)
 
     # 3. Prepare LaTeX content
-    valset_string = generate_valset_string(report_data, round_subunit_results=round_subunit_results)
+    # WH reports calculate the *displayed* Pathogen level in LaTeX as 35 - H.
+    # Never round the underlying assay/Ct value H before that calculation.
+    # Other templates keep their existing direct-value rounding behaviour.
+    valset_string = generate_valset_string(
+        report_data,
+        round_subunit_results=(round_subunit_results and wh_variant is None)
+    )
     with open(template_path, 'r') as f:
         template_content = f.read()
     # The legacy WH template names all resolve to WH_template.tex, but each
@@ -227,6 +233,20 @@ def compile_single_report(report_data, template_path, base_output_folder, panel_
         )
         if hide_stis:
             print("  > INFO: WH customer-specific display: STI/HSV sections and STI summary hidden.")
+
+        # Pass the GUI checkbox into the WH LaTeX calculation itself.
+        # The displayed pathogen level, rather than the raw assay value,
+        # is rounded only when 0 < (35 - H) < 1.
+        rounding_marker = '%% -- ROUNDING_CONFIG -- %%'
+        if rounding_marker not in template_content:
+            raise ValueError(f"WH rounding configuration marker missing in {template_path}")
+        rounding_commands = (
+            "\\newif\\ifRoundSubunitResults\n"
+            + ("\\RoundSubunitResultstrue" if round_subunit_results
+               else "\\RoundSubunitResultsfalse")
+        )
+        template_content = template_content.replace(rounding_marker, rounding_commands, 1)
+        print(f"  > INFO: WH displayed Pathogen level rounding: {'ON' if round_subunit_results else 'OFF'}")
 
     final_tex_content = template_content.replace('%% -- DATA_INSERT_POINT -- %%', valset_string)
 
