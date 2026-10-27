@@ -24,7 +24,12 @@
 \usepackage{helvet} % Use Helvetica font, similar to Calibri
 \renewcommand{\familydefault}{\sfdefault}
 \usepackage{graphicx} % For including images
-\usepackage[left=0.5in, right=0.5in, top=0.5in, bottom=0.5in]{geometry} % Margins
+% Fax-safe header (from page 2 onward) and footer (every page).
+% Top 0.60in restores 0.10in of first-page space compared with top 0.70in.
+% The page-2+ running header is about 0.35in below the page top.
+% The footer remains about 0.42in above the page bottom.
+% Page 1 has a separate logo/title block, not a fancyhdr running header.
+\usepackage[left=0.5in, right=0.5in, top=0.60in, bottom=0.65in, headheight=14pt, headsep=8pt, footskip=14pt]{geometry} % Fax-safe header and footer
 \usepackage{tabularx} % For tables with flexible column widths
 \usepackage{longtable} % For tables that can span multiple pages
 \usepackage{array}    % For advanced column specifications
@@ -81,6 +86,8 @@
 \newcommand{\ResultIndent}{\hspace{1.5em}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% -- ROUNDING_CONFIG -- %%
+
 % --- LOGIC HELPERS (LaTeX3) ---
 \ExplSyntaxOn
 
@@ -132,7 +139,19 @@
           {
             \fp_compare:nTF { \l_tmpa_fp = 0 || \l_tmpa_fp >= 35 }
               { }
-              { \tl_set:Nx #2 { \fp_eval:n { 35 - \l_tmpa_fp } } }
+              {
+                % Pathogen level is calculated as 35 - H.
+                % When report rounding is enabled, display any calculated
+                % positive level below 1 as 1 (e.g. H=34.6 -> level=0.4 -> 1).
+                \fp_set:Nn \l_tmpb_fp { 35 - \l_tmpa_fp }
+                \ifRoundSubunitResults
+                  \fp_compare:nTF { 0 < \l_tmpb_fp < 1 }
+                    { \tl_set:Nn #2 { 1 } }
+                    { \tl_set:Nx #2 { \fp_eval:n { \l_tmpb_fp } } }
+                \else
+                  \tl_set:Nx #2 { \fp_eval:n { \l_tmpb_fp } }
+                \fi
+              }
           }
       }
   }
@@ -224,16 +243,26 @@
    }
  }
 
-% ---------- XA(value): (0,35] -> 35 - value ; else 0
+% ---------- XA(value): (0,35) -> displayed pathogen level = 35 - value
+% If the GUI rounding option is enabled, any displayed pathogen level in
+% the open interval (0,1) is shown as 1.  The raw assay/Ct value is untouched.
 \NewDocumentCommand{\XA}{m}{%
   \tl_if_blank:nTF {#1}{}{%
     \fp_set:Nn \l_tmpb_fp {#1}%
-    % Check for -1 (use \fp_compare:nF to run logic if NOT -1)
     \fp_compare:nF { \l_tmpb_fp = -1 }
     {%
       \fp_compare:nTF { \l_tmpb_fp > 0 }{%
-        \fp_compare:nTF { \l_tmpb_fp < 35 }{ \fp_to_decimal:n { 35 - \l_tmpb_fp } }{  }%
-      }{  }%
+        \fp_compare:nTF { \l_tmpb_fp < 35 }{%
+          \fp_set:Nn \l_tmpc_fp { 35 - \l_tmpb_fp }%
+          \ifRoundSubunitResults
+            \fp_compare:nTF { 0 < \l_tmpc_fp < 1 }
+              { 1 }
+              { \fp_to_decimal:N \l_tmpc_fp }
+          \else
+            \fp_to_decimal:N \l_tmpc_fp
+          \fi
+        }{ }%
+      }{ }%
     }%
   }%
 }
